@@ -15,16 +15,12 @@
 */
 package org.wso2.emm.agent;
 
-
-import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import org.wso2.emm.agent.R;
 import org.wso2.emm.agent.api.ApplicationManager;
 import org.wso2.emm.agent.services.Config;
 import org.wso2.emm.agent.services.ProcessMessage;
 import org.wso2.emm.agent.utils.CommonUtilities;
+import org.wso2.emm.agent.utils.ServerUtilities;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -33,7 +29,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.PowerManager;
+import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
@@ -48,6 +44,8 @@ public class GCMIntentService extends GCMBaseIntentService {
 	ApplicationManager appList;
 	static final int ACTIVATION_REQUEST = 47; 
 	ProcessMessage processMsg = null;
+	OperationsAsync getOperations = null;
+	Context context;
 		
     @SuppressWarnings("hiding")
     private static final String TAG = "GCMIntentService";
@@ -82,11 +80,17 @@ public class GCMIntentService extends GCMBaseIntentService {
     
 	@Override
     protected void onMessage(Context context, Intent intent) {
-		String code = intent.getStringExtra(getResources().getString(R.string.intent_extra_message)).trim();
-
-        Config.context = this;
-
-    	processMsg = new ProcessMessage(Config.context, CommonUtilities.MESSAGE_MODE_GCM, intent);
+		this.context=context;
+		if(CommonUtilities.GCM_ENABLED){
+			if(!CommonUtilities.NEW_MESSAGE_FLOW_ENABLED){
+				String code = intent.getStringExtra(getResources().getString(R.string.intent_extra_message)).trim();
+		        Config.context = this;
+		    	processMsg = new ProcessMessage(Config.context, CommonUtilities.MESSAGE_MODE_GCM, intent);
+			}else{
+				getOperations = new OperationsAsync();
+				getOperations.execute("");
+			}
+		}
     }
 	    
 
@@ -112,6 +116,34 @@ public class GCMIntentService extends GCMBaseIntentService {
 
         return super.onRecoverableError(context, errorId);
     }
+    
+    class OperationsAsync extends AsyncTask<String, Void, String> {
+
+        protected String doInBackground(String... urls) {
+            try {
+            	return getOperations();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        protected void onPostExecute(String result) {
+        	//IMPLEMENT MESSAGE PROCESSING
+        }
+     }
+    
+    public String getOperations(){
+		String server_res = null;
+		try {
+			server_res = ServerUtilities.getOperationList(this.context);			
+			return server_res;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return null;
+		}
+	}
 
     /**
      * Issues a notification to inform the user that server has sent a message.

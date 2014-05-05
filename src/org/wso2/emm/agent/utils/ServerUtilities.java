@@ -21,6 +21,7 @@ import com.google.android.gcm.GCMRegistrar;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.text.format.Time;
 import android.util.Log;
 
@@ -57,6 +58,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -83,12 +85,13 @@ import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.wso2.emm.agent.AuthenticationActivity;
 import org.wso2.emm.agent.R;
 import org.wso2.emm.agent.SettingsActivity;
 import org.wso2.emm.agent.api.DeviceInfo;
 
 /**
- * Helper class used to communicate with the demo server.
+ * Helper class used to communicate with emm server.
  */
 public final class ServerUtilities {
 
@@ -101,14 +104,28 @@ public final class ServerUtilities {
 			Context context) {
 		Map<String, String> _response = new HashMap<String, String>();
 		Map<String, String> params = new HashMap<String, String>();
+		params.put("grant_type", "password");
 		params.put("username", username);
 		params.put("password", password);
 		
-		String response = "";
+		Map<String, String> response = null;
 		try {
-			response = sendWithTimeWait("users/authenticate", params,
-					"POST", context).get("response");
-			if (response.trim().contains(CommonUtilities.REQUEST_SUCCESSFUL)) {
+			/*response = sendWithTimeWait("users/authenticate", params,
+					"POST", context).get("response");*/
+			response = sendWithTimeWait("token", params,
+					"POST", context, true);
+			Log.e("AUTH TOKEN RECEIVED : ", response.get("response"));
+			JSONObject tokenjson = new JSONObject(response.get("response"));
+			String token = tokenjson.optString("access_token");
+			String refresh_token = tokenjson.optString("refresh_token");
+			SharedPreferences mainPref = context
+					.getSharedPreferences(context.getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+			Editor editor = mainPref.edit();
+			editor.putString("access_token", token);
+			editor.putString("refresh_token", refresh_token);
+			editor.commit();
+			
+			if (response.get("status").trim().contains(CommonUtilities.REQUEST_SUCCESSFUL)) {
 				_response.put("status", "1");
 				_response.put("message", "Authentication Successful");
 				return _response;
@@ -133,8 +150,8 @@ public final class ServerUtilities {
 		/*ArrayList<NameValuePair> params = new ArrayList<NameValuePair>();
 		params.add(new BasicNameValuePair("regid", regId)); */
 		
-		response = sendWithTimeWait("devices/isregistered", params,
-				"POST", context);
+		response = sendWithTimeWait("devices/isregistered/1.0.0", params,
+				"POST", context, false);
 		String status="";
 		try {
 			status = response.get("status");
@@ -154,7 +171,29 @@ public final class ServerUtilities {
 		Map<String, String> response = new HashMap<String, String>();
 		String res="";
 		params.put("", null);
-		response = getRequest("devices/license?domain="+domain, context);
+		response = getRequest("devices/license/1.0.0?domain="+domain, context);
+		String status = "";
+		try {
+			status = response.get("status");
+			Log.v("EULA RESPONSE", response.get("response"));
+			res =  response.get("response");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if (status.trim().equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+			return res;
+			
+		} else {
+			return null;
+		}
+	}
+	
+	public static String getOperationList(Context context) {
+		Map<String, String> params = new HashMap<String, String>();
+		Map<String, String> response = new HashMap<String, String>();
+		String res="";
+		params.put("", null);
+		response = getRequest("devices/operations", context);
 		String status = "";
 		try {
 			status = response.get("status");
@@ -234,8 +273,13 @@ public final class ServerUtilities {
 				endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_APP_ENDPOINT+ url;
 			}
 
+				SharedPreferences tokenPref = context
+					.getSharedPreferences(context.getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+				String token = tokenPref.getString("access_token", "");
 		        HttpClient client = getCertifiedHttpClient(context);
 		        HttpGet request = new HttpGet();
+		        Log.e("TOKEN : ", token);
+		        request.setHeader("Authorization", "Bearer "+token);
 		        request.setURI(new URI(endpoint));
 		        response = client.execute(request);
 		        _response = convertStreamToString(response.getEntity().getContent());
@@ -298,7 +342,7 @@ public final class ServerUtilities {
 		// Calls the function "sendTimeWait" to do a HTTP post to our server
 		// using Android HTTPUrlConnection API
 		response = sendWithTimeWait("devices/register", params, "POST",
-				context).get("status");
+				context, false).get("status");
 
 		if(response.equals(CommonUtilities.REGISTERATION_SUCCESSFUL)){
 			state = true;
@@ -327,7 +371,7 @@ public final class ServerUtilities {
 		boolean state=false;
 		try{
 		response = sendWithTimeWait("devices/unregister", params,
-				"POST", context).get("status");
+				"POST", context, false).get("status");
 		if(response.equals(CommonUtilities.REQUEST_SUCCESSFUL)){
 			state = true;
 		}else{
@@ -360,7 +404,7 @@ public final class ServerUtilities {
 				logger.writeStringAsFile(to_write, "wso2log.txt");
 			}
 			response = sendWithTimeWait("notifications", params_in, "POST",
-					context).get("response");
+					context, false).get("response");
 		
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -369,20 +413,26 @@ public final class ServerUtilities {
 		return response;
 	}
 	
-	public static Map<String, String> postData(Context context, String url, Map<String, String> params) {
+	public static Map<String, String> postData(Context context, String url, Map<String, String> params, boolean isToken) {
 	    // Create a new HttpClient and Post Header
 		Map<String, String> response_params = new HashMap<String, String>();
 	    HttpClient httpclient = getCertifiedHttpClient(context);
 
 	    String endpoint = CommonUtilities.SERVER_URL + url;
-		
+	    if(isToken){
+	    	endpoint = CommonUtilities.SERVER_OAUTH_URL + url;
+	    }
 		SharedPreferences mainPref = context.getSharedPreferences(
 				"com.mdm", Context.MODE_PRIVATE);
 		String ipSaved = mainPref.getString("ip", "");
 		
 		if(ipSaved != null && ipSaved != ""){
 			endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_APP_ENDPOINT+ url;
+			if(isToken){
+				endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_OAUTH_APP_ENDPOINT+ url;
+			}
 		}
+	
 		Log.v(TAG, "Posting '" + params.toString() + "' to " + endpoint);
 		StringBuilder bodyBuilder = new StringBuilder();
 		Iterator<Entry<String, String>> iterator = params.entrySet().iterator();
@@ -399,11 +449,16 @@ public final class ServerUtilities {
 		String body = bodyBuilder.toString();
 		Log.v(TAG, "Posting '" + body + "' to " + url);
 		byte[] postData = body.getBytes();
+		byte[] byteArray = Base64.encodeBase64((CommonUtilities.SERVER_OAUTH_CLIENT_ID+":"+CommonUtilities.SERVER_OAUTH_CLIENT_SECRET).getBytes());
+		String authtoken = new String(byteArray);
 		
 		HttpPost httppost = new HttpPost(endpoint);
 		httppost.setHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
         httppost.setHeader("Accept", "*/*");
         httppost.setHeader("User-Agent","Mozilla/5.0 ( compatible ), Android");
+		if(isToken){
+	        httppost.setHeader("Authorization","Basic "+authtoken);
+		}
 		
 	    try {
 	        // Add your data
@@ -426,7 +481,7 @@ public final class ServerUtilities {
 	} 
 
 	public static Map<String, String> sendWithTimeWait(String epPostFix,
-			Map<String, String> params, String option, Context context) {
+			Map<String, String> params, String option, Context context, boolean isToken) {
 		Map<String, String> response = null;
 		Map<String, String> responseFinal = null;
 		long backoff = BACKOFF_MILLI_SECONDS + random.nextInt(1000);
@@ -435,7 +490,7 @@ public final class ServerUtilities {
 			try {
 				//response = sendToServer(epPostFix, params, option, context);
 				
-				response = postData(context, epPostFix, params);
+				response = postData(context, epPostFix, params, isToken);
 				if (response != null && !response.equals(null)) {
 					responseFinal = response;
 				}
@@ -457,237 +512,6 @@ public final class ServerUtilities {
 				MAX_ATTEMPTS);
 
 		return responseFinal;
-	}
-	
-	public final static HostnameVerifier WSO2MOBILE_HOST = new HostnameVerifier() {
-		String[] allowHost = {"192.168.18.57", "204.13.81.82", "ours.ultra.com"}; 
-		
-		public boolean verify(String hostname, SSLSession session) {
-			boolean status = false;
-			try{
-			for (int i=0; i < allowHost.length; i++) {
-	             if (hostname == allowHost[i])
-	                status = true;
-	        }
-			}catch(Exception ex){
-				ex.printStackTrace();
-			}
-			return status;
-		}
-		
-	};
-
-	final static HostnameVerifier DO_NOT_VERIFY = new HostnameVerifier() {
-		public boolean verify(String hostname, SSLSession session) {
-			return true;
-		}
-	};
-
-	public static Map<String, String> sendToServer(String epPostFix, Map<String, String> params,
-			String option, Context context) throws IOException {
-		String response = null;
-		Map<String, String> response_params = new HashMap<String, String>();
-		String endpoint = CommonUtilities.SERVER_URL + epPostFix;
-		
-		SharedPreferences mainPref = context.getSharedPreferences(
-				"com.mdm", Context.MODE_PRIVATE);
-		String ipSaved = mainPref.getString("ip", "");
-		
-		if(ipSaved != null && ipSaved != ""){
-			endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_APP_ENDPOINT+ epPostFix;
-		}
-		
-		URL url;
-		try {
-			url = new URL(endpoint);
-		} catch (MalformedURLException e) {
-			throw new IllegalArgumentException("invalid url: " + endpoint);
-		}
-		StringBuilder bodyBuilder = new StringBuilder();
-		Iterator<Entry<String, String>> iterator = params.entrySet().iterator();
-
-		while (iterator.hasNext()) {
-			Entry<String, String> param = iterator.next();
-			bodyBuilder.append(param.getKey()).append('=')
-					.append(param.getValue());
-			if (iterator.hasNext()) {
-				bodyBuilder.append('&');
-			}
-		}
-		String body = bodyBuilder.toString();
-		Log.v(TAG, "Posting '" + body + "' to " + url);
-		byte[] bytes = body.getBytes();
-		HttpURLConnection conn = null;
-		HttpsURLConnection sConn = null;
-		try {
-
-			if (url.getProtocol().toLowerCase().equals("https")) {
-
-				sConn = (HttpsURLConnection) url.openConnection();
-				sConn = getTrustedConnection(context, sConn);
-				sConn.setHostnameVerifier(WSO2MOBILE_HOST);
-				conn = sConn;
-
-			} else {
-				conn = (HttpURLConnection) url.openConnection();
-			}
-
-			conn.setDoOutput(true);
-			conn.setUseCaches(false);
-			conn.setFixedLengthStreamingMode(bytes.length);
-			conn.setRequestMethod(option);
-			conn.setRequestProperty("Content-Type",
-					"application/x-www-form-urlencoded;charset=UTF-8");
-
-			conn.setRequestProperty("Accept", "*/*");
-			conn.setRequestProperty("Connection", "close");
-			// post the request
-			int status = 0;
-			Log.v("Check verb", option);
-			if (!option.equals("DELETE")) {
-				OutputStream out = conn.getOutputStream();
-				out.write(bytes);
-				out.close();
-				// handle the response
-				status = conn.getResponseCode();
-				Log.v("Response Status", status + "");
-				InputStream inStream = conn.getInputStream();
-				response = inputStreamAsString(inStream);
-				response_params.put("response",response);
-				Log.v("Response Message", response);
-				response_params.put("status", String.valueOf(status));
-			} else {
-				status = Integer.valueOf(CommonUtilities.REQUEST_SUCCESSFUL);
-			}
-			if (status != Integer.valueOf(CommonUtilities.REQUEST_SUCCESSFUL) && status != Integer.valueOf(CommonUtilities.REGISTERATION_SUCCESSFUL)) {
-				throw new IOException("Post failed with error code " + status);
-			}
-		} catch(Exception e){
-			e.printStackTrace();
-			return null;
-		}finally {
-			if (conn != null) {
-				conn.disconnect();
-			}
-		}
-		return response_params;
-	}
-
-	private static void trustAllHosts() {
-
-		X509TrustManager easyTrustManager = new X509TrustManager() {
-
-			public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-				return new java.security.cert.X509Certificate[] {};
-			}
-
-			@Override
-			public void checkClientTrusted(
-					java.security.cert.X509Certificate[] chain, String authType)
-					throws java.security.cert.CertificateException {
-				// TODO Auto-generated method stub
-
-			}
-
-			@Override
-			public void checkServerTrusted(
-					java.security.cert.X509Certificate[] chain, String authType)
-					throws java.security.cert.CertificateException {
-				// TODO Auto-generated method stub
-
-			}
-
-		};
-
-		// Create a trust manager that does not validate certificate chains
-		TrustManager[] trustAllCerts = new TrustManager[] { easyTrustManager };
-
-		// Install the all-trusting trust manager
-		try {
-			SSLContext sc = SSLContext.getInstance("TLS");
-
-			sc.init(null, trustAllCerts, new java.security.SecureRandom());
-
-			HttpsURLConnection
-					.setDefaultSSLSocketFactory(sc.getSocketFactory());
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	public static HttpsURLConnection getTrustedConnection(Context context,
-			HttpsURLConnection conn) {
-		HttpsURLConnection urlConnection = conn;
-		try {
-			KeyStore localTrustStore;
-
-			localTrustStore = KeyStore.getInstance("BKS");
-
-			InputStream in = context.getResources().openRawResource(
-					R.raw.emm_truststore);
-
-			localTrustStore.load(in, CommonUtilities.TRUSTSTORE_PASSWORD.toCharArray());
-
-			TrustManagerFactory tmf;
-			tmf = TrustManagerFactory.getInstance(TrustManagerFactory
-					.getDefaultAlgorithm());
-
-			tmf.init(localTrustStore);
-
-			SSLContext sslCtx;
-
-			sslCtx = SSLContext.getInstance("TLS");
-
-			sslCtx.init(null, tmf.getTrustManagers(), null);
-
-			urlConnection.setSSLSocketFactory(sslCtx.getSocketFactory());
-			return urlConnection;
-		} catch (KeyManagementException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		} catch (CertificateException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-			return null;
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-			return null;
-		} catch (KeyStoreException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-			return null;
-		}
-
-	}
-
-	public static String inputStreamAsString(InputStream in) {
-
-		BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-		StringBuilder builder = new StringBuilder();
-		String line = null;
-		try {
-			while ((line = reader.readLine()) != null) {
-				builder.append(line);
-				builder.append("\n"); // append a new line
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				in.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		// System.out.println(builder.toString());
-		return builder.toString();
 	}
 	
 	public static String getResponseBody(HttpResponse response) {

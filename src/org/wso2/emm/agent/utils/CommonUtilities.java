@@ -24,13 +24,20 @@ import android.content.SharedPreferences;
  * app.
  */
 public class CommonUtilities {
-	public static boolean DEBUG_MODE_ENABLED = false;
+	public static boolean DEBUG_MODE_ENABLED = true;
+	public static boolean LOCAL_NOTIFICATIONS_ENABLED = false;
+	public static boolean GCM_ENABLED = true;
+	public static boolean NEW_MESSAGE_FLOW_ENABLED = false;
 
-	public static String SERVER_IP = "----ADD YOUR HOSTNAME HERE----";
-	public static String SERVER_PORT = "9443";
-	public static String SERVER_PROTOCOL = "https://";
+	public static String SERVER_IP = "10.100.5.3";
+	public static String SERVER_PORT = "9763";
+	public static String SERVER_PROTOCOL = "http://";
 	public static String SERVER_APP_ENDPOINT = "/mdm/api/";
+	public static String SERVER_OAUTH_APP_ENDPOINT = "/oauth2/";
 	public static String SERVER_URL = SERVER_PROTOCOL+SERVER_IP+":"+SERVER_PORT+SERVER_APP_ENDPOINT;
+	public static String SERVER_OAUTH_URL = SERVER_PROTOCOL+SERVER_IP+":"+SERVER_PORT+SERVER_OAUTH_APP_ENDPOINT;
+	public static String SERVER_OAUTH_CLIENT_ID = "MyfCf_sncNwCkPsAAIAWOVdIycca";
+	public static String SERVER_OAUTH_CLIENT_SECRET = "lGc9JtuLQbcBNCp4JJHEdb8VjJwa";
     public static final String TRUSTSTORE_PASSWORD = "----ADD YOUR TRUST STORE PASSWORD HERE----";
 	public static final String EULA_TITLE = "----ADD YOUR AGREEMENT TITLE HERE----";
 	public static final String EULA_TEXT = "----ADD YOUR POLICY AGREEMENT HERE----";
