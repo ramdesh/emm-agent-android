@@ -28,12 +28,20 @@ public class CommonUtilities {
 
 	public static String SERVER_IP = "----ADD YOUR HOSTNAME HERE----";
 	public static String SERVER_PORT = "9443";
-	public static String SERVER_PROTOCOL = "https://";
-	public static String SERVER_APP_ENDPOINT = "/mdm/api/";
-	public static String SERVER_URL = SERVER_PROTOCOL+SERVER_IP+":"+SERVER_PORT+SERVER_APP_ENDPOINT;
+	public static String SERVER_PROTOCOL = "http://";
+	public static String SERVER_APP_ENDPOINT = "/emm/api/";
+	public static String OAUTH_ENDPOINT = "/oauth2/token";
+	public static String SENDER_ID_ENDPOINT = "/devices/sender_id";
+	public static String SERVER_URL = SERVER_PROTOCOL + SERVER_IP + ":" + SERVER_PORT + SERVER_APP_ENDPOINT;
+	public static String SERVER_OAUTH_URL = SERVER_PROTOCOL + SERVER_IP + ":" + SERVER_PORT + OAUTH_ENDPOINT;
+	public static String SERVER_REQUEST_SENDER_ID_URL = SERVER_PROTOCOL + SERVER_IP + ":" + SERVER_PORT + SENDER_ID_ENDPOINT;
+	
     public static final String TRUSTSTORE_PASSWORD = "----ADD YOUR TRUST STORE PASSWORD HERE----";
 	public static final String EULA_TITLE = "----ADD YOUR AGREEMENT TITLE HERE----";
 	public static final String EULA_TEXT = "----ADD YOUR POLICY AGREEMENT HERE----";
+	
+	public static final String CLIENT_ID = "----ADD YOUR CLIENT ID HERE----";
+	public static final String CLIENT_SECRET = "----ADD YOUR CLIENT SECRET HERE----";
 
     	public static String getSERVER_URL() {
 		return SERVER_URL;
@@ -81,6 +89,8 @@ public class CommonUtilities {
 	 */
 	public static final String REQUEST_SUCCESSFUL = "200";
 	public static final String REGISTERATION_SUCCESSFUL = "201";
+	public static final String REQUEST_FAILED = "500";
+	public static final String AUTHENTICATION_FAILED = "400";
 	
 	/**
      * Operation IDs
