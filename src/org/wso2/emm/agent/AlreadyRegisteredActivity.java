@@ -170,8 +170,6 @@ public class AlreadyRegisteredActivity extends SherlockActivity {
 
 		@Override
 		public void onClick(View view) {
-			// TODO Auto-generated method stub
-
 			int iTag = (Integer) view.getTag();
 
 			switch (iTag) {

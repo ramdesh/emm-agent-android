@@ -15,11 +15,18 @@
  */
 package org.wso2.emm.agent;
 
+import java.util.HashMap;
 import java.util.Map;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.wso2.emm.agent.api.DeviceInfo;
+import org.wso2.emm.agent.api.PhoneState;
+import org.wso2.emm.agent.security.APIResultCallBackImpl;
+import org.wso2.emm.agent.utils.CommonDialogUtils;
 import org.wso2.emm.agent.utils.CommonUtilities;
-import org.wso2.emm.agent.utils.ServerUtilities;
 import org.wso2.mobile.idp.proxy.APIAccessCallBack;
 import org.wso2.mobile.idp.proxy.APIController;
 import org.wso2.mobile.idp.proxy.APIResultCallBack;
@@ -33,6 +40,7 @@ import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
@@ -72,7 +80,7 @@ public class AuthenticationActivity extends SherlockActivity implements
 	String isAgreed = "";
 	String eula = "";
 	ProgressDialog progressDialog;
-	AsyncTask<Void, Void, String> mLicenseTask;
+	AlertDialog.Builder alertDialog;
 	private final int TAG_BTN_AUTHENTICATE = 0;
 	private final int TAG_BTN_OPTIONS = 1;
 
@@ -296,27 +304,7 @@ public class AuthenticationActivity extends SherlockActivity implements
 						"1");
 				editor.commit();
 				dialog.dismiss();
-				Intent intent = new Intent(AuthenticationActivity.this,
-						PinCodeActivity.class);
-				intent.putExtra(
-						getResources().getString(R.string.intent_extra_regid),
-						regId);
-				intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-				if (txtDomain.getText() != null
-						&& txtDomain.getText().toString().trim() != "") {
-					intent.putExtra(
-							getResources().getString(
-									R.string.intent_extra_email), username
-									.getText().toString().trim()
-									+ "@"
-									+ txtDomain.getText().toString().trim());
-				} else {
-					intent.putExtra(
-							getResources().getString(
-									R.string.intent_extra_email), username
-									.getText().toString().trim());
-				}
-				startActivity(intent);
+				loadPincodeAcitvity();
 			}
 		});
 
@@ -381,6 +369,7 @@ public class AuthenticationActivity extends SherlockActivity implements
 				break;
 
 			case DialogInterface.BUTTON_NEGATIVE:
+				dialog.dismiss();
 				startAuthentication();
 				break;
 			}
@@ -432,48 +421,10 @@ public class AuthenticationActivity extends SherlockActivity implements
 				 */
 						
 			} else {
-				Intent intent = new Intent(AuthenticationActivity.this,
-						PinCodeActivity.class);
-				intent.putExtra(
-						getResources().getString(R.string.intent_extra_regid),
-						regId);
-				intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-				if (txtDomain.getText() != null
-						&& txtDomain.getText().toString().trim() != "") {
-					intent.putExtra(
-							getResources().getString(
-									R.string.intent_extra_email), username
-									.getText().toString().trim()
-									+ "@"
-									+ txtDomain.getText().toString().trim());
-				} else {
-					intent.putExtra(
-							getResources().getString(
-									R.string.intent_extra_email), username
-									.getText().toString().trim());
-				}
-
-				startActivity(intent);
+				loadPincodeAcitvity();
 			}
 		} else {
-			Intent intent = new Intent(AuthenticationActivity.this,
-					PinCodeActivity.class);
-			intent.putExtra(
-					getResources().getString(R.string.intent_extra_regid),
-					regId);
-			intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-			if (txtDomain.getText() != null
-					&& txtDomain.getText().toString().trim() != "") {
-				intent.putExtra(
-						getResources().getString(R.string.intent_extra_email),
-						username.getText().toString().trim() + "@"
-								+ txtDomain.getText().toString().trim());
-			} else {
-				intent.putExtra(
-						getResources().getString(R.string.intent_extra_email),
-						username.getText().toString().trim());
-			}
-			startActivity(intent);
+			loadPincodeAcitvity();
 		}
 	}
 
@@ -508,27 +459,31 @@ public class AuthenticationActivity extends SherlockActivity implements
 				.getString(R.string.shared_pref_reg_type), deviceType);
 		editor.commit();
 		
-		if (txtDomain.getText() != null
-				&& !txtDomain.getText().toString().trim().equals("")) {
-			IdentityProxy.getInstance().init(CommonUtilities.CLIENT_ID,
-					 CommonUtilities.CLIENT_SECRET, username.getText().toString().trim() + "@" + txtDomain.getText().toString().trim(),
-					 password.getText().toString().trim(), CommonUtilities.SERVER_OAUTH_URL,
-					AuthenticationActivity.this);
-			
+		// Check connection availability before calling the API.
+		if (PhoneState.isNetworkAvailable(context)) {
+			if (txtDomain.getText() != null
+					&& !txtDomain.getText().toString().trim().equals("")) {
+				IdentityProxy.getInstance().init(CommonUtilities.CLIENT_ID,
+						 CommonUtilities.CLIENT_SECRET, username.getText().toString().trim() + "@" + txtDomain.getText().toString().trim(),
+						 password.getText().toString().trim(), CommonUtilities.SERVER_OAUTH_URL,
+						AuthenticationActivity.this);
+				
+			} else {
+				IdentityProxy.getInstance().init(CommonUtilities.CLIENT_ID,
+						 CommonUtilities.CLIENT_SECRET, username.getText().toString().trim() ,
+						 password.getText().toString().trim(), CommonUtilities.SERVER_OAUTH_URL,
+						AuthenticationActivity.this);
+			}
+
+				progressDialog = ProgressDialog.show(
+						AuthenticationActivity.this,
+						getResources().getString(R.string.dialog_authenticate),
+						getResources().getString(R.string.dialog_please_wait),
+						true);
 		} else {
-			IdentityProxy.getInstance().init(CommonUtilities.CLIENT_ID,
-					 CommonUtilities.CLIENT_SECRET, username.getText().toString().trim() ,
-					 password.getText().toString().trim(), CommonUtilities.SERVER_OAUTH_URL,
-					AuthenticationActivity.this);
+			CommonDialogUtils.showNetworkUnavailableMessage(AuthenticationActivity.this);
 		}
 		
-		// NEED TO IMPLEMENT PROGRESSBAR CANCEL 
-
-			progressDialog = ProgressDialog.show(
-					AuthenticationActivity.this,
-					getResources().getString(R.string.dialog_authenticate),
-					getResources().getString(R.string.dialog_please_wait),
-					true);
 	}
 
 	public void startOptionActivity() {
@@ -623,14 +578,14 @@ public class AuthenticationActivity extends SherlockActivity implements
 
 	@Override
 	protected void onResume() {
-		// TODO Auto-generated method stub
+		// Here we need to call isRegistered function
 		mRegisterTask = new AsyncTask<Void, Void, Void>() {
 			boolean state = false;
 
 			@Override
 			protected Void doInBackground(Void... params) {
 				try {
-					state = ServerUtilities.isRegistered(regId, context);
+					// state = ServerUtilities.isRegistered(regId, context);
 				} catch (Exception e) {
 					e.printStackTrace();
 					// HandleNetworkError(e);
@@ -664,9 +619,7 @@ public class AuthenticationActivity extends SherlockActivity implements
 
 			@Override
 			protected void onPostExecute(Void result) {
-				if (progressDialog != null && progressDialog.isShowing()) {
-					progressDialog.dismiss();
-				}
+				stopProgressDialog();
 				SharedPreferences mainPref = context.getSharedPreferences(
 						getResources().getString(R.string.shared_pref_package),
 						Context.MODE_PRIVATE);
@@ -687,10 +640,7 @@ public class AuthenticationActivity extends SherlockActivity implements
 					startActivity(intent);
 					// finish();
 				} else {
-					if (progressDialog != null && progressDialog.isShowing()) {
-						progressDialog.dismiss();
-					}
-					// finish();
+					stopProgressDialog();
 				}
 				mRegisterTask = null;
 
@@ -702,66 +652,244 @@ public class AuthenticationActivity extends SherlockActivity implements
 
 		super.onResume();
 	}
+	
+	DialogInterface.OnClickListener senderIdFailedClickListener = new DialogInterface.OnClickListener() {
+		@Override
+		public void onClick(DialogInterface dialog, int which) {
+			username.setText(CommonUtilities.EMPTY_STRING);
+			password.setText(CommonUtilities.EMPTY_STRING);
+			txtDomain.setText(CommonUtilities.EMPTY_STRING);
+			authenticate.setEnabled(false);
+			authenticate.setBackground(getResources().getDrawable(
+					R.drawable.btn_grey));
+			authenticate.setTextColor(getResources().getColor(R.color.black));
+		}
+	};
 
-	public void onReceiveAPIResult(Map<String, String> arg0) {
-		Map<String, String> result=arg0;
-		if(result.get("senderID")!=null && !result.get("senderID").equals("")){
-    		CommonUtilities.setSENDER_ID(result.get("senderID"));
-    	}
-    	SharedPreferences mainPref = context.getSharedPreferences(
-    			getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
-    	Editor editor = mainPref.edit();
-    	editor.putString(getResources().getString(R.string.shared_pref_sender_id), result.get("senderID"));
-    	editor.putString(getResources().getString(R.string.shared_pref_message_mode), result.get("mode"));
-    	editor.putString(getResources().getString(R.string.shared_pref_monitor_interval), result.get("interval"));
-		editor.commit();
-		fetchLicense();
+	public void onReceiveAPIResult(Map<String, String> result, int requestCode) {
+		String responseStatus = "";
+		JSONObject response = null;
+		
+		if (requestCode == CommonUtilities.SENDER_ID_REQUEST_CODE) {
+			String senderId = "";
+			String mode = "";
+			String interval = "";
+			if (result != null) {
+				responseStatus = result.get(CommonUtilities.STATUS_KEY);
+				if (responseStatus.equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+					try {
+						response = new JSONObject(result.get("response"));
+						senderId = response.getString("sender_id");
+						mode = response.getString("notifier");
+						interval = response.getString("notifierInterval");
+						
+					} catch (JSONException e) {
+						e.printStackTrace();
+					}
+					if (!senderId.equals("")) {
+						CommonUtilities.setSENDER_ID(senderId);
+						GCMRegistrar.register(context, senderId);
+					}
+					SharedPreferences mainPref = context.getSharedPreferences(
+							getResources().getString(
+									R.string.shared_pref_package),
+							Context.MODE_PRIVATE);
+					Editor editor = mainPref.edit();
+					editor.putString(
+							getResources().getString(
+									R.string.shared_pref_sender_id), senderId);
+					editor.putString(
+							getResources().getString(
+									R.string.shared_pref_message_mode), mode);
+					editor.putString(
+							getResources().getString(
+									R.string.shared_pref_monitor_interval),
+							interval);
+					editor.commit();
+
+					stopProgressDialog();
+					getLicense();
+
+				} else {
+					stopProgressDialog();
+
+					alertDialog = CommonDialogUtils
+							.getAlertDialogWithOneButton(
+									AuthenticationActivity.this,
+									getResources().getString(
+											R.string.title_init_msg_error),
+									getResources()
+											.getString(R.string.button_ok),
+									senderIdFailedClickListener);
+					alertDialog.show();
+
+				}
+			}
+
+		}
+
+		if (requestCode == CommonUtilities.LICENSE_REQUEST_CODE) {
+			stopProgressDialog();
+			String licenseAgreement = "";
+			if (result != null) {
+				responseStatus = result.get(CommonUtilities.STATUS_KEY);
+				if (responseStatus.equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+					licenseAgreement = result.get("response");
+
+					SharedPreferences mainPref = AuthenticationActivity.this
+							.getSharedPreferences(
+									getResources().getString(
+											R.string.shared_pref_package),
+									Context.MODE_PRIVATE);
+					Editor editor = mainPref.edit();
+					editor.putString(
+							getResources().getString(R.string.shared_pref_eula),
+							licenseAgreement);
+					editor.commit();
+
+					if (licenseAgreement != null && !licenseAgreement.equals(CommonUtilities.EMPTY_STRING)) {
+						showAlert(licenseAgreement, CommonUtilities.EULA_TITLE);
+					} else {
+						showErrorMessage(
+								getResources()
+										.getString(
+												R.string.error_enrollment_failed_detail),
+								getResources().getString(
+										R.string.error_enrollment_failed));
+					}
+
+				} else {
+					// TODO NEED TO IMPLEMENT
+				}
+
+			} else {
+				// TODO NEED TO IMPLEMENT
+			}
+
+		}
+
+	}
+
+	private void stopProgressDialog() {
+		if (progressDialog != null && progressDialog.isShowing()) {
+			progressDialog.dismiss();
+		}
+	}
+
+	private void getLicense() {
+		SharedPreferences mainPref = context.getSharedPreferences(
+				getResources().getString(R.string.shared_pref_package),
+				Context.MODE_PRIVATE);
+		isAgreed = mainPref.getString(
+				getResources().getString(R.string.shared_pref_isagreed), "");
+		String eula = mainPref.getString(
+				getResources().getString(R.string.shared_pref_eula), "");
+		String type = mainPref.getString(
+				getResources().getString(R.string.shared_pref_reg_type), "");
+
+		if (type.trim().equals(
+				getResources().getString(R.string.device_enroll_type_byod))) {
+			if (!isAgreed.equals("1")) {
+				Map<String, String> requestParams = new HashMap<String, String>();
+				requestParams.put("domain", txtDomain.getText().toString().trim());
+						
+				// Get License
+				OnCancelListener cancelListener = new OnCancelListener() {
+
+					@Override
+					public void onCancel(DialogInterface arg0) {
+						showAlertSingle(
+								getResources()
+										.getString(
+												R.string.error_enrollment_failed_detail),
+								getResources().getString(
+										R.string.error_enrollment_failed));
+						// finish();
+					}
+				}; 
+				
+				progressDialog = ProgressDialog.show(
+						AuthenticationActivity.this,
+						getResources().getString(
+								R.string.dialog_license_agreement),
+						getResources().getString(
+								R.string.dialog_please_wait), true);
+				progressDialog.setCancelable(true);
+				progressDialog.setOnCancelListener(cancelListener);
+				
+				
+
+				APIUtilities apiUtilities = new APIUtilities();
+				apiUtilities.setEndPoint(CommonUtilities.SERVER_URL + CommonUtilities.LICENSE_ENDPOINT + CommonUtilities.API_VERSION);
+				apiUtilities.setHttpMethod("GET");
+				apiUtilities.setRequestParams(requestParams);
+				APIController apiController = new APIController();
+				apiController.invokeAPI(apiUtilities, this, CommonUtilities.LICENSE_REQUEST_CODE);
+				
+			} else {
+				loadPincodeAcitvity();
+			}
+		} else {
+			loadPincodeAcitvity();
+		}
+		
+	}
+
+	private void loadPincodeAcitvity() {
+		Intent intent = new Intent(AuthenticationActivity.this,
+				PinCodeActivity.class);
+		intent.putExtra(
+				getResources().getString(R.string.intent_extra_regid),
+				regId);
+		intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+		if (txtDomain.getText() != null
+				&& txtDomain.getText().toString().trim() != "") {
+			intent.putExtra(
+					getResources().getString(R.string.intent_extra_email),
+					username.getText().toString().trim() + "@"
+							+ txtDomain.getText().toString().trim());
+		} else {
+			intent.putExtra(
+					getResources().getString(R.string.intent_extra_email),
+					username.getText().toString().trim());
+		}
+		startActivity(intent);
 	}
 
 	@Override
-	public void onAPIAccessRecive() {
-		String status = "";
-		/*if (status!=null && status.trim().equals(CommonUtilities.REQUEST_FAILED)) {
-			showAuthErrorMessage(getResources().getString(R.string.error_connect_to_server), getResources().getString(R.string.error_heading_connection));
-		} else*/ if (status!=null && status.trim().equals(CommonUtilities.AUTHENTICATION_FAILED) ){
+	public void onAPIAccessRecive(String status) {
+
+		if (status != null
+				&& status.trim().equals(CommonUtilities.AUTHENTICATION_FAILED)) {
+			if (progressDialog != null) {
+				progressDialog.dismiss();
+			}
 			AlertDialog.Builder builder = new AlertDialog.Builder(
 					AuthenticationActivity.this);
 			builder.setTitle(getResources().getString(
 					R.string.title_head_authentication_error));
 			builder.setMessage(
-					getResources().getString(
-							R.string.error_auth_failed_detail))
+					getResources().getString(R.string.error_auth_failed_detail))
 					.setNegativeButton(
-							getResources()
-									.getString(
-											R.string.info_label_rooted_answer_yes),
+							getResources().getString(
+									R.string.info_label_rooted_answer_yes),
 							dialogClickListener)
 					.setPositiveButton(
-							getResources()
-									.getString(
-											R.string.info_label_rooted_answer_no),
+							getResources().getString(
+									R.string.info_label_rooted_answer_no),
 							dialogClickListener).show();
 		} else {
 			// REQUESTING SERNDER ID
 			APIUtilities apiUtilities = new APIUtilities();
-			
-			// This is working secured URL
-			apiUtilities.setEndPoint(CommonUtilities.SERVER_URL + "devices/license/1.0.0");
-			
-			// This is correct server call according to the sequence
-			//apiUtilities.setEndPoint(CommonUtilities.SERVER_REQUEST_SENDER_ID_URL + "devices/license/1.0.0");
-			apiUtilities.setHttpMethod("GET");
-			//apiUtilities.setRequestParams(requestParams);
-			APIController apiController = new APIController();
-			apiController.invokeAPI(apiUtilities, this);
-			
-		}
-		String test = "onAPIAccessRecive() is called";
-		
-		Log.e("AuthenticationActivity class: ", test);
-		
-		
+			apiUtilities.setEndPoint(CommonUtilities.SERVER_URL
+					+ CommonUtilities.SENDER_ID_ENDPOINT
+					+ CommonUtilities.API_VERSION);
 
+			apiUtilities.setHttpMethod("GET");
+			APIController apiController = new APIController();
+			apiController.invokeAPI(apiUtilities, AuthenticationActivity.this,
+					CommonUtilities.SENDER_ID_REQUEST_CODE);
+		}
 	}
 
 }
