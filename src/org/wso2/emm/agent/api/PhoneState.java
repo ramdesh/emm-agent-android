@@ -32,6 +32,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.TrafficStats;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -241,4 +243,14 @@ public class PhoneState {
 	        amount = bd.doubleValue();
 	        return amount;
 	 }
+	 
+	 public static boolean isNetworkAvailable(Context context) {
+			ConnectivityManager mConnMan = (ConnectivityManager) context
+					.getSystemService(Context.CONNECTIVITY_SERVICE);
+			NetworkInfo info = mConnMan.getActiveNetworkInfo();
+			if (info == null) {
+				return false;
+			}
+			return info.isConnected();
+		}
 }
