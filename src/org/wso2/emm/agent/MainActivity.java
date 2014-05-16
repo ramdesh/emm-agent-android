@@ -140,6 +140,7 @@ public class MainActivity extends Activity implements APIResultCallBack {
 					requestParams.put("regid", regId);
 					requestParams.put("properties", jsObject.toString());
 					requestParams.put("osversion", osVersion);
+					requestParams.put("username", "admin");
 					requestParams.put("platform", "Android");
 					requestParams.put("vendor",
 							deviceInfo.getDeviceManufacturer());
@@ -147,10 +148,10 @@ public class MainActivity extends Activity implements APIResultCallBack {
 					requestParams.put("mac", deviceInfo.getMACAddress());
 
 					APIUtilities apiUtilities = new APIUtilities();
-					/*apiUtilities.setEndPoint(CommonUtilities.SERVER_URL
+					apiUtilities.setEndPoint(CommonUtilities.SERVER_URL
 							+ CommonUtilities.REGISTER_ENDPOINT
-							+ CommonUtilities.API_VERSION);*/
-					apiUtilities.setEndPoint("http://10.100.5.36:9763/emm/api/devicess/registerr/1.0.0");
+							+ CommonUtilities.API_VERSION);
+					//apiUtilities.setEndPoint("http://10.100.5.36:9763/emm/api/devicess/registerr/1.0.0");
 					apiUtilities.setHttpMethod("POST");
 					apiUtilities.setRequestParams(requestParams);
 					APIController apiController = new APIController();
@@ -227,7 +228,7 @@ public class MainActivity extends Activity implements APIResultCallBack {
 			responseStatus = result.get(CommonUtilities.STATUS_KEY);
 			
 			if (requestCode == CommonUtilities.REGISTER_REQUEST_CODE) {
-				if (responseStatus.equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+				if (responseStatus.equals(CommonUtilities.REGISTERATION_SUCCESSFUL)) {
 					Intent intent = new Intent(MainActivity.this,AlreadyRegisteredActivity.class);
 		        	intent.putExtra(getResources().getString(R.string.intent_extra_regid), regId);
 		        	intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);

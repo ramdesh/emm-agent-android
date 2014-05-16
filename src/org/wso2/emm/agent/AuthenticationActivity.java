@@ -858,7 +858,7 @@ public class AuthenticationActivity extends SherlockActivity implements
 
 	@Override
 	public void onAPIAccessRecive(String status) {
-
+		Log.v("onAPIAccessRecive","onAPIAccessRecive");
 		if (status != null
 				&& status.trim().equals(CommonUtilities.AUTHENTICATION_FAILED)) {
 			if (progressDialog != null) {

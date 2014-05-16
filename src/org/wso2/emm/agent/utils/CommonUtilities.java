@@ -40,6 +40,7 @@ public class CommonUtilities {
 	public static String IS_REGISTERED_ENDPOINT = "devices/isregistered/";
 	public static String LICENSE_ENDPOINT = "devices/license/";
 	public static String REGISTER_ENDPOINT = "devices/register/";
+	public static String UNREGISTER_ENDPOINT = "devices/unregister/";
 	
 	public static String SERVER_URL = SERVER_PROTOCOL + SERVER_IP + ":"
 			+ SERVER_PORT + SERVER_APP_ENDPOINT;
@@ -64,6 +65,7 @@ public class CommonUtilities {
 	public static final int IS_REGISTERED_REQUEST_CODE = 301;
 	public static final int SENDER_ID_REQUEST_CODE = 303;
 	public static final int LICENSE_REQUEST_CODE = 304;
+	public static final int UNREGISTER_REQUEST_CODE = 305;
 
 
 	public static String getSERVER_URL() {
