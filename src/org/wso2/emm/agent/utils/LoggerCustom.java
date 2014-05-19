@@ -21,7 +21,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
+import android.R;
 import android.content.Context;
 import android.os.Environment;
 import android.util.Log;
@@ -59,4 +62,8 @@ public class LoggerCustom {
         
         return stringBuilder.toString();
     }
+    
+    
+    
+    
 }

@@ -119,6 +119,11 @@ public class EntryActivity extends Activity {
 			regId = GCMRegistrar.getRegistrationId(this);
 		}
 		
+		String regIden=CommonUtilities.getPref(context, context.getResources().getString(R.string.shared_pref_regId));
+		if(!regIden.equals("")){
+			regId=regIden;
+		}
+		
 		SharedPreferences mainPref = context.getSharedPreferences(
     			getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
 		String success = mainPref.getString(getResources().getString(R.string.shared_pref_registered), "");
@@ -254,6 +259,7 @@ public class EntryActivity extends Activity {
 	        	        //mLicenseTask.execute();
 	        			Intent intent = new Intent(EntryActivity.this,AuthenticationActivity.class);
 	        			intent.putExtra(getResources().getString(R.string.intent_extra_regid), regId);
+	        			Log.e("EntryActivity", "reg "+regId);
 	        			intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 	        			startActivity(intent);
 	        			//finish();

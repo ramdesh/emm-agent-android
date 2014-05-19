@@ -23,14 +23,19 @@ import com.google.android.gcm.GCMRegistrar;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -52,6 +57,7 @@ public class MainActivity extends Activity {
 	 Button btnEnroll = null;
 	 RelativeLayout btnLayout = null;
 	 AsyncTask<Void, Void, String> mRegisterTask;
+	 AsyncTask<Void, Void, String> gcmTask;
 	 
 	static final int ACTIVATION_REQUEST = 47; // identifies our request id
 	DevicePolicyManager devicePolicyManager;
@@ -67,6 +73,7 @@ public class MainActivity extends Activity {
 		context = this;
 		
 		
+		
 		Bundle extras = getIntent().getExtras();
 		if (extras != null) {
 			if(extras.containsKey(getResources().getString(R.string.intent_extra_regid))){
@@ -78,23 +85,83 @@ public class MainActivity extends Activity {
 			}
 		}
 		
+		
+		String regIden=CommonUtilities.getPref(context, context.getResources().getString(R.string.shared_pref_regId));
+		if(!regIden.equals("")){
+			regId=regIden;
+		}
+		
+		
 		if (regId.equals("") || regId == null) {
-            GCMRegistrar.register(this, CommonUtilities.SENDER_ID);
-            
+			
+			gcmTask = new AsyncTask<Void, Void, String>() {
+
+                 @Override
+                 protected String doInBackground(Void... params) {
+                	 return GCMRegistrar.getRegistrationId(context);
+                 }
+
+                 @Override
+                 protected void onPostExecute(String result) {
+                 	gcmTask = null;
+                 	if(result!=null){
+                 		initialize();
+                		
+                 	}
+                 }
+
+             };
+             gcmTask.execute(null, null, null);        
+        }else{
+        	 initialize();
         } 
-        if (GCMRegistrar.isRegisteredOnServer(this)) {
-        	regId = GCMRegistrar.getRegistrationId(this);
-        }
-		
-		SharedPreferences mainPref = this.getSharedPreferences( getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
-		Editor editor = mainPref.edit();
-		editor.putString(getResources().getString(R.string.shared_pref_username), email);
-		editor.commit();
-		
-		//Enroll automatically
-		final Context context = MainActivity.this;
-		mRegisterTask = new AsyncTask<Void, Void, String>() {
-	
+
+    }
+    
+    private void initialize() {
+    	if(regId!=null && !regId.trim().equals("")){
+			SharedPreferences mainPref = context
+    				.getSharedPreferences(getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+    		Editor editor = mainPref.edit();
+    		editor.putString(getResources().getString(R.string.shared_pref_username), email);
+    		editor.putString(getResources().getString(R.string.shared_pref_regId), regId);
+    		editor.commit();
+			register();
+		}else{
+			AlertDialog.Builder builder =
+			                              new AlertDialog.Builder(MainActivity.this);
+			builder.setTitle(getResources().getString(R.string.title_head_init_error));
+			builder.setMessage(getResources().getString(R.string.title_init_msg_error))
+			       .setNegativeButton(getResources().getString(R.string.info_label_rooted_answer_yes),
+			                          dialogClickListener)
+			       .setPositiveButton(getResources().getString(R.string.info_label_rooted_answer_no),
+			                          dialogClickListener).show();
+			
+		}
+	    
+    }
+
+	DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+		@Override
+		public void onClick(DialogInterface dialog, int which) {
+			switch (which) {
+			case DialogInterface.BUTTON_POSITIVE:
+				initialize();
+				break;
+
+			case DialogInterface.BUTTON_NEGATIVE:
+				Intent i=new Intent(MainActivity.this,AuthenticationActivity.class);
+				startActivity(i);
+				finish();
+				break;
+			}
+		}
+	};
+    
+    
+    private void register(){
+    	mRegisterTask = new AsyncTask<Void, Void, String>() {
+    		
 	        @Override
 	        protected String doInBackground(Void... params) {
 	          //  boolean registered = ServerUtilities.register(context, regId);
@@ -122,6 +189,7 @@ public class MainActivity extends Activity {
             		progressDialog.dismiss();
                 }
 	        	if(regState){
+	        		
 	            	Intent intent = new Intent(MainActivity.this,AlreadyRegisteredActivity.class);
 	            	intent.putExtra(getResources().getString(R.string.intent_extra_regid), regId);
 	            	intent.putExtra(getResources().getString(R.string.intent_extra_fresh_reg_flag), true);
@@ -146,116 +214,6 @@ public class MainActivity extends Activity {
 	
 	    };
 	    mRegisterTask.execute(null, null, null);
-		        
-		
-		btnEnroll = (Button)findViewById(R.id.btnEnroll);
-		btnLayout = (RelativeLayout)findViewById(R.id.enrollPanel);
-		//ImageView optionBtn = (ImageView) findViewById(R.id.option_button);	
-		
-		btnEnroll.setOnClickListener(new OnClickListener() {
-			
-			@Override
-			public void onClick(View v) {
-				// TODO Auto-generated method stub
-				mRegisterTask = new AsyncTask<Void, Void, String>() {
-					
-			        @Override
-			        protected String doInBackground(Void... params) {
-			          //  boolean registered = ServerUtilities.register(context, regId);
-			        //	ServerUtilities.register(context, regId);
-			        	try{
-			        		regState = ServerUtilities.register(regId, context);
-			        	}catch(Exception e){
-			        		e.printStackTrace();
-			        	}
-			        	
-			        	return null;
-			        }
-			
-			        ProgressDialog progressDialog;
-			        //declare other objects as per your need
-			        @Override
-			        protected void onPreExecute()
-			        {
-			            progressDialog= ProgressDialog.show(MainActivity.this, getResources().getString(R.string.dialog_enrolling),getResources().getString(R.string.dialog_please_wait), true);
-			
-			            //do initialization of required objects objects here                
-			        }; 
-			        @Override
-			        protected void onPostExecute(String result) {
-			        	if (progressDialog!=null && progressDialog.isShowing()){
-		            		progressDialog.dismiss();
-		                }
-			        	if(regState){
-			            	Intent intent = new Intent(MainActivity.this,AlreadyRegisteredActivity.class);
-			            	intent.putExtra(getResources().getString(R.string.intent_extra_regid), regId);
-			            	intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-			            	startActivity(intent);
-			            	//finish();
-			        	}else{
-			        		Intent intent = new Intent(MainActivity.this,AuthenticationErrorActivity.class);
-			            	intent.putExtra(getResources().getString(R.string.intent_extra_regid), regId);
-			            	intent.putExtra(getResources().getString(R.string.intent_extra_from_activity), MainActivity.class.getSimpleName());
-			            	intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-			            	startActivity(intent);
-			            	//finish();
-			        	}
-			        	//}else{
-			        		//btnLayout.setVisibility(View.VISIBLE);
-			        		//progressDialog.dismiss();
-			        	//}
-			            mRegisterTask = null;
-			           
-			        }
-			
-			    };
-			    mRegisterTask.execute(null, null, null);
-			}
-		});
-		
-		/*btnEnroll.setOnClickListener(new OnClickListener() {
-			
-			@Override
-			public void onClick(View v) {
-				
-				final Context context = MainActivity.this;
-				mRegisterTask = new AsyncTask<Void, Void, Void>() {
-
-                    @Override
-                    protected Void doInBackground(Void... params) {
-                      //  boolean registered = ServerUtilities.register(context, regId);
-                    //	ServerUtilities.register(context, regId);
-                    	ServerUtilities.register(regId, context);
-                    	
-                    	return null;
-                    }
-
-                    ProgressDialog progressDialog;
-                    //declare other objects as per your need
-                    @Override
-                    protected void onPreExecute()
-                    {
-                        progressDialog= ProgressDialog.show(MainActivity.this, "Enrolling Device","Please wait", true);
-
-                        //do initialization of required objects objects here                
-                    }; 
-                    @Override
-                    protected void onPostExecute(Void result) {
-                		//Direct to register successful class
-	                    	Intent intent = new Intent(MainActivity.this,RegisterSuccessful.class);
-	                    	intent.putExtra("regid", regId);
-	                    	intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-	                    	startActivity(intent);
-	                    	finish();
-                        mRegisterTask = null;
-                        //progressDialog.dismiss();
-                    }
-
-                };
-                mRegisterTask.execute(null, null, null);
-				
-			}
-		});*/
     }
 
     @Override

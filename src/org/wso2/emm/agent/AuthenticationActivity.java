@@ -17,8 +17,11 @@ package org.wso2.emm.agent;
 
 import java.util.Map;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.wso2.emm.agent.R;
 import org.wso2.emm.agent.api.DeviceInfo;
+import org.wso2.emm.agent.services.AlarmReceiver;
 import org.wso2.emm.agent.utils.CommonUtilities;
 import org.wso2.emm.agent.utils.ServerUtilities;
 
@@ -29,10 +32,14 @@ import com.google.android.gcm.GCMRegistrar;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.provider.Settings.Secure;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -73,6 +80,7 @@ public class AuthenticationActivity extends SherlockActivity {
 	AsyncTask<Void, Void, String> mLicenseTask;
 	private final int TAG_BTN_AUTHENTICATE = 0;
 	private final int TAG_BTN_OPTIONS = 1;
+	AsyncTask<Void, Void, String> mSenderIDTask;
 
 	@SuppressLint("NewApi")
 	@Override
@@ -130,7 +138,12 @@ public class AuthenticationActivity extends SherlockActivity {
 		if (regId == null || regId.equals("")) {
 			regId = GCMRegistrar.getRegistrationId(this);
 		}
-
+		
+		String regIden=CommonUtilities.getPref(context, context.getResources().getString(R.string.shared_pref_regId));
+		if(!regIden.equals("")){
+			regId=regIden;
+		}
+		
 		username.addTextChangedListener(new TextWatcher() {
 			@Override
 			public void beforeTextChanged(CharSequence s, int start, int count,
@@ -212,6 +225,133 @@ public class AuthenticationActivity extends SherlockActivity {
 		}
 	};
 
+	public void getSenderID(){
+		  mSenderIDTask = new AsyncTask<Void, Void, String>() {
+	            @Override
+	            protected String doInBackground(Void... params) {
+	            	String response = "";
+	            	try{
+	            		response =ServerUtilities.getSenderID(context);
+	            	}catch(Exception e){
+	            		e.printStackTrace();
+	            		//HandleNetworkError(e);
+	            		//Toast.makeText(getApplicationContext(), "No Connection", Toast.LENGTH_LONG).show();
+	            	}
+	                return response;
+	            }
+	            
+	            
+	            //declare other objects as per your need
+	            @Override
+	            protected void onPreExecute()
+	            {
+	            	progressDialog= ProgressDialog.show(AuthenticationActivity.this, getResources().getString(R.string.dialog_sender_id),getResources().getString(R.string.dialog_please_wait), true);
+	                progressDialog.setCancelable(true);
+	                progressDialog.setOnCancelListener(cancelListener);     
+	            };     
+
+	            OnCancelListener cancelListener=new OnCancelListener(){
+	                @Override
+	                public void onCancel(DialogInterface arg0){
+	                	showAlert(getResources().getString(R.string.error_connect_to_server), getResources().getString(R.string.error_heading_connection));
+	                }
+	            };
+	            
+	            @Override
+	            protected void onPostExecute(String result) {
+	            	String senderID = null,notifier="";
+	            	long interval = 1;
+	            	
+	            	
+	            	if (progressDialog!=null && progressDialog.isShowing()){
+	            		progressDialog.dismiss();
+	                }
+	            	if(result!=null && !result.equals("")){
+	            		try {
+		                    JSONObject res=new JSONObject(result);
+		                    senderID=res.getString("sender_id");
+		                    notifier=res.getString("notifier");
+		                    Double intervl=Double.parseDouble(res.getString("notifierInterval"));
+		                    interval=intervl.intValue();
+		                    CommonUtilities.SENDER_ID=senderID;
+		                    
+		                    
+						SharedPreferences mainPref =
+						                             context.getSharedPreferences(getResources().getString(R.string.shared_pref_package),
+						                                                          Context.MODE_PRIVATE);
+						Editor editor = mainPref.edit();
+						editor.putString(getResources().getString(R.string.shared_pref_sender_id),
+						                 senderID);
+						if (!notifier.equals("")) {
+							editor.putString(getResources().getString(R.string.shared_pref_notifier),
+							                 notifier);
+							editor.putLong(getResources().getString(R.string.shared_pref_interval),
+								              interval);
+
+							if (notifier.trim().toUpperCase().contains("LOCAL")) {
+								CommonUtilities.LOCAL_NOTIFICATIONS_ENABLED = true;
+								CommonUtilities.GCM_ENABLED = false;
+								String androidID = Secure.getString(context.getContentResolver(),
+				                                                     Secure.ANDROID_ID);
+						        editor.putString(getResources().getString(R.string.shared_pref_regId), androidID);
+						        editor.commit();
+						        startLocalNotification(interval);
+							} else if (notifier.trim().toUpperCase().contains("GCM")) {
+								CommonUtilities.LOCAL_NOTIFICATIONS_ENABLED = false;
+								CommonUtilities.GCM_ENABLED = true;
+								editor.commit();
+								GCMRegistrar.register(context, CommonUtilities.SENDER_ID);
+								
+							}
+						}
+
+						
+						
+		                                                  					
+		                    
+		                    
+		                    fetchLicense();
+
+	                    } catch (JSONException e) {
+		                    // TODO Auto-generated catch block
+		                    e.printStackTrace();
+	                    }
+	            		
+	            		
+	            		
+	            	}
+	            	
+	            	
+	    			
+	                mSenderIDTask = null;
+	                
+	            }
+
+	        };
+	        
+	        mSenderIDTask.execute(null, null, null);
+	        	
+	}
+	
+	private void startLocalNotification(long duration) {
+		long firstTime = SystemClock.elapsedRealtime();
+	    firstTime += 1 * 1000;
+	    
+	    
+	    Intent downloader = new Intent(context, AlarmReceiver.class);
+	    PendingIntent recurringDownload = PendingIntent.getBroadcast(context,
+	            0, downloader, PendingIntent.FLAG_CANCEL_CURRENT);
+	    AlarmManager alarms = (AlarmManager) context.getSystemService(
+	            Context.ALARM_SERVICE);
+	   /* alarms.setInexactRepeating(AlarmManager.RTC_WAKEUP,
+	            updateTime.getTimeInMillis(),
+	            AlarmManager.INTERVAL_DAY, recurringDownload);*/
+	    
+	    alarms.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, firstTime,
+	            15000*duration, recurringDownload);
+	    
+    }
+	
 	public void showErrorMessage(String message, String title) {
 		AlertDialog.Builder builder = new AlertDialog.Builder(context);
 		builder.setMessage(message);
@@ -423,6 +563,7 @@ public class AuthenticationActivity extends SherlockActivity {
 												Context.MODE_PRIVATE);
 								Editor editor = mainPref.edit();
 								editor.putString(getResources().getString(R.string.shared_pref_eula), result);
+//								editor.putString(getResources().getString(R.string.shared_pref_regId), regId);
 								editor.commit();
 	
 								isAgreed = mainPref.getString(getResources().getString(R.string.shared_pref_isagreed), "");
@@ -538,7 +679,7 @@ public class AuthenticationActivity extends SherlockActivity {
 					progressDialog.dismiss();
 				}
 				if (state!=null && state.get("status").trim().equals("1")) {
-					fetchLicense();
+					getSenderID();
 					
 				} else {
 					if(state!=null && !state.get("message").trim().equals("")){
@@ -656,6 +797,7 @@ public class AuthenticationActivity extends SherlockActivity {
 	@Override
 	protected void onResume() {
 		// TODO Auto-generated method stub
+		
 		mRegisterTask = new AsyncTask<Void, Void, Void>() {
 			boolean state = false;
 
@@ -728,6 +870,15 @@ public class AuthenticationActivity extends SherlockActivity {
 		mRegisterTask.execute(null, null, null);
 
 		super.onResume();
+	}
+	
+	@Override
+	protected void onDestroy() {
+	    // TODO Auto-generated method stub
+		if(mSenderIDTask!=null){
+        	mSenderIDTask.cancel(true);
+        }
+	    super.onDestroy();
 	}
 
 }

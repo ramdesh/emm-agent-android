@@ -17,6 +17,7 @@ package org.wso2.emm.agent;
 
 
 import org.wso2.emm.agent.R;
+import org.wso2.emm.agent.utils.CommonUtilities;
 
 import android.os.Bundle;
 import android.annotation.SuppressLint;
@@ -63,6 +64,11 @@ public class PinCodeActivity extends Activity {
 
 			if (extras.containsKey(getResources().getString(R.string.intent_extra_regid))) {
 				REG_ID = extras.getString(getResources().getString(R.string.intent_extra_regid));
+			}
+			
+			String regIden=CommonUtilities.getPref(this, this.getResources().getString(R.string.shared_pref_regId));
+			if(!regIden.equals("")){
+				REG_ID=regIden;
 			}
 			
 			if(extras.containsKey(getResources().getString(R.string.intent_extra_from_activity))){

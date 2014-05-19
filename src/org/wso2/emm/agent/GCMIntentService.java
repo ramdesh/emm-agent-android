@@ -15,16 +15,12 @@
 */
 package org.wso2.emm.agent;
 
-
-import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import org.wso2.emm.agent.R;
 import org.wso2.emm.agent.api.ApplicationManager;
 import org.wso2.emm.agent.services.Config;
 import org.wso2.emm.agent.services.ProcessMessage;
 import org.wso2.emm.agent.utils.CommonUtilities;
+import org.wso2.emm.agent.utils.ServerUtilities;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -33,7 +29,8 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.PowerManager;
+import android.content.SharedPreferences.Editor;
+import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
@@ -48,6 +45,8 @@ public class GCMIntentService extends GCMBaseIntentService {
 	ApplicationManager appList;
 	static final int ACTIVATION_REQUEST = 47; 
 	ProcessMessage processMsg = null;
+	OperationsAsync getOperations = null;
+	Context context;
 		
     @SuppressWarnings("hiding")
     private static final String TAG = "GCMIntentService";
@@ -60,9 +59,11 @@ public class GCMIntentService extends GCMBaseIntentService {
     @Override
     protected void onRegistered(Context context, String registrationId) {
     	if(CommonUtilities.DEBUG_MODE_ENABLED){Log.i(TAG, "Device registered: regId = " + registrationId);}
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        SharedPreferences.Editor editor = preferences.edit();
+    	SharedPreferences mainPref = context
+				.getSharedPreferences(getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+		Editor editor = mainPref.edit();
         editor.putString(getResources().getString(R.string.shared_pref_regId), registrationId);
+        Log.e("registrationId","registrationId");
         editor.commit();
     }
 
@@ -82,12 +83,41 @@ public class GCMIntentService extends GCMBaseIntentService {
     
 	@Override
     protected void onMessage(Context context, Intent intent) {
-		String code = intent.getStringExtra(getResources().getString(R.string.intent_extra_message)).trim();
-
-        Config.context = this;
-
-    	processMsg = new ProcessMessage(Config.context, CommonUtilities.MESSAGE_MODE_GCM, intent);
+		this.context=context;
+		String mode=CommonUtilities.getPref(context, context.getResources().getString(R.string.shared_pref_notifier));
+		if(mode.trim().toUpperCase().equals("GCM")){
+			getOperations = new OperationsAsync();
+			getOperations.execute("");
+		}
     }
+	
+	class OperationsAsync extends AsyncTask<String, Void, String> {
+
+        protected String doInBackground(String... urls) {
+            try {
+            	return getOperationsLocal();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        protected void onPostExecute(String result) {
+        	processMsg = new ProcessMessage(context, CommonUtilities.MESSAGE_MODE_LOCAL, result);
+        }
+     }
+    
+    public String getOperationsLocal(){
+		String server_res = null;
+		try {
+			server_res = ServerUtilities.getOperationList(context);	
+			return server_res;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return null;
+		}
+	}
 	    
 
     @Override
@@ -112,6 +142,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
         return super.onRecoverableError(context, errorId);
     }
+    
 
     /**
      * Issues a notification to inform the user that server has sent a message.

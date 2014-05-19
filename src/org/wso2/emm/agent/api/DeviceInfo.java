@@ -186,6 +186,7 @@ public class DeviceInfo{
 	public boolean isRooted(){
 		rootChecker = new Root();
 		return rootChecker.isDeviceRooted();
+//		return false;
 	}
 	/**
 	*Returns the SIM serial number

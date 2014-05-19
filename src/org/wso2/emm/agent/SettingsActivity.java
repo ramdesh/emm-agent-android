@@ -15,15 +15,22 @@
 */
 package org.wso2.emm.agent;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.wso2.emm.agent.R;
 import org.wso2.emm.agent.api.DeviceInfo;
+import org.wso2.emm.agent.services.AlarmReceiver;
 import org.wso2.emm.agent.utils.CommonUtilities;
 import org.wso2.emm.agent.utils.ServerUtilities;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.provider.Settings.Secure;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -53,13 +60,13 @@ public class SettingsActivity extends Activity {
 	boolean accessFlag = true;
 	TextView errorMessage;
 	String error = "";
-	AsyncTask<Void, Void, String> mSenderIDTask;
 	ProgressDialog progressDialog;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_settings);
-		context = SettingsActivity.this;
+		context = SettingsActivity.this;		                              					
+			
 		info = new DeviceInfo(SettingsActivity.this);     
 		Bundle extras = getIntent().getExtras();
 		if (extras != null) {
@@ -69,6 +76,11 @@ public class SettingsActivity extends Activity {
 			
 			if(extras.containsKey(getResources().getString(R.string.intent_extra_regid))){
 				REG_ID = extras.getString(getResources().getString(R.string.intent_extra_regid));
+			}
+			
+			String regIden=CommonUtilities.getPref(context, context.getResources().getString(R.string.shared_pref_regId));///////////////////////////////////
+			if(!regIden.equals("")){
+				REG_ID=regIden;
 			}
 		}
 		
@@ -140,16 +152,28 @@ public class SettingsActivity extends Activity {
 						.setNegativeButton(getResources().getString(R.string.info_label_rooted_answer_no), dialogClickListener).show();
 			}
 		});
+		
 	}
 	
+	
+
 	DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
 			switch (which) {
 			case DialogInterface.BUTTON_POSITIVE:
 				if(!ip.getText().toString().trim().equals("")){
-					CommonUtilities.setSERVER_URL(ip.getText().toString().trim());
-					getSenderID();
+						CommonUtilities.SERVER_IP = ip.getText().toString().trim();
+						SharedPreferences mainPref =
+						                             context.getSharedPreferences(getResources().getString(R.string.shared_pref_package),
+						                                                          Context.MODE_PRIVATE);
+						Editor editor = mainPref.edit();
+						editor.putString(getResources().getString(R.string.shared_pref_ip),
+						                 ip.getText().toString().trim());
+						editor.commit();
+					Intent intent = new Intent(SettingsActivity.this,EntryActivity.class);
+					intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+	    			startActivity(intent);	
 					
 				}else{
 					Toast.makeText(context, getResources().getString(R.string.toast_message_enter_server_address), Toast.LENGTH_LONG).show();
@@ -202,67 +226,6 @@ public class SettingsActivity extends Activity {
 	    return super.onKeyDown(keyCode, event);
 	}
 	
-	public void getSenderID(){
-		  mSenderIDTask = new AsyncTask<Void, Void, String>() {
-	            @Override
-	            protected String doInBackground(Void... params) {
-	            	String response = "";
-	            	try{
-	            		response =ServerUtilities.getSenderID(context);
-	            	}catch(Exception e){
-	            		e.printStackTrace();
-	            		//HandleNetworkError(e);
-	            		//Toast.makeText(getApplicationContext(), "No Connection", Toast.LENGTH_LONG).show();
-	            	}
-	                return response;
-	            }
-	            
-	            
-	            //declare other objects as per your need
-	            @Override
-	            protected void onPreExecute()
-	            {
-	            	progressDialog= ProgressDialog.show(SettingsActivity.this, getResources().getString(R.string.dialog_sender_id),getResources().getString(R.string.dialog_please_wait), true);
-	                progressDialog.setCancelable(true);
-	                progressDialog.setOnCancelListener(cancelListener);     
-	            };     
-
-	            OnCancelListener cancelListener=new OnCancelListener(){
-	                @Override
-	                public void onCancel(DialogInterface arg0){
-	                	showAlert(getResources().getString(R.string.error_connect_to_server), getResources().getString(R.string.error_heading_connection));
-	                }
-	            };
-	            
-	            @Override
-	            protected void onPostExecute(String result) {
-	            	if (progressDialog!=null && progressDialog.isShowing()){
-	            		progressDialog.dismiss();
-	                }
-	            	if(result!=null && !result.equals("")){
-	            		CommonUtilities.setSENDER_ID(result);
-	            	}
-	            	SharedPreferences mainPref = context.getSharedPreferences(
-	            			getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
-	            	Editor editor = mainPref.edit();
-	            	editor.putString(getResources().getString(R.string.shared_pref_sender_id), senderID);
-					editor.putString(getResources().getString(R.string.shared_pref_ip), ip.getText().toString().trim());
-					editor.commit();
-					
-					CommonUtilities.setSERVER_URL(ip.getText().toString().trim());
-					Intent intent = new Intent(SettingsActivity.this,EntryActivity.class);
-					intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-	    			startActivity(intent);	
-	    			
-	                mSenderIDTask = null;
-	                
-	            }
-
-	        };
-	        
-	        mSenderIDTask.execute(null, null, null);
-	        	
-	}
 	
 	public void showAlert(String message, String title){
 		AlertDialog.Builder builder = new AlertDialog.Builder(context);
@@ -273,9 +236,7 @@ public class SettingsActivity extends Activity {
                 new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
                 dialog.cancel();
-                if(mSenderIDTask!=null){
-                	mSenderIDTask.cancel(true);
-                }
+                
             }
         });
         /*builder1.setNegativeButton("No",

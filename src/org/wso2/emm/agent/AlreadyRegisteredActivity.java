@@ -102,6 +102,11 @@ public class AlreadyRegisteredActivity extends SherlockActivity {
 			}
 
 		}
+		String regIden=CommonUtilities.getPref(context, context.getResources().getString(R.string.shared_pref_regId));
+		if(!regIden.equals("")){
+			regId=regIden;
+		}
+		
 		if (regId == null || regId.equals("")) {
 			regId = GCMRegistrar.getRegistrationId(this);
 		}
@@ -264,8 +269,8 @@ public class AlreadyRegisteredActivity extends SherlockActivity {
 						editor.putString(
 								getResources().getString(
 										R.string.shared_pref_isagreed), "0");
-						editor.putString(
-								getResources().getString(R.string.shared_pref_regId), "");
+//						editor.putString(
+//								getResources().getString(R.string.shared_pref_regId), "");
 						editor.putString(
 								getResources().getString(
 										R.string.shared_pref_registered), "0");

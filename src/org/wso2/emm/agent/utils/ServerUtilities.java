@@ -21,10 +21,12 @@ import com.google.android.gcm.GCMRegistrar;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.text.format.Time;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -57,6 +59,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -83,12 +86,13 @@ import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.wso2.emm.agent.AuthenticationActivity;
 import org.wso2.emm.agent.R;
 import org.wso2.emm.agent.SettingsActivity;
 import org.wso2.emm.agent.api.DeviceInfo;
 
 /**
- * Helper class used to communicate with the demo server.
+ * Helper class used to communicate with emm server.
  */
 public final class ServerUtilities {
 
@@ -137,7 +141,7 @@ public final class ServerUtilities {
 				"POST", context);
 		String status="";
 		try {
-			status = response.get("status");
+			//status = response.get("status");
 			Log.v("Register State", response.get("response"));
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -159,6 +163,33 @@ public final class ServerUtilities {
 		try {
 			status = response.get("status");
 			Log.v("EULA RESPONSE", response.get("response"));
+			res =  response.get("response");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if (status.trim().equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+			return res;
+			
+		} else {
+			return null;
+		}
+	}
+	
+	public static String getOperationList(Context context) {
+		SharedPreferences mainPref = context
+				.getSharedPreferences(context.getResources().getString(R.string.shared_pref_package),
+						Context.MODE_PRIVATE);
+		String regId=mainPref.getString(context.getResources().getString(R.string.shared_pref_regId), "");
+		Map<String, String> params = new HashMap<String, String>();
+		Map<String, String> response = new HashMap<String, String>();
+		String res="";
+		params.put("regId", regId);
+		response=sendWithTimeWait("notifications/pendingOperations", params,
+		 				"POST", context);
+		String status = "";
+		try {
+			status = response.get("status");
+			Log.v("OPERATION RESPONSE", response.get("response"));
 			res =  response.get("response");
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -197,6 +228,7 @@ public final class ServerUtilities {
 	     try {
 	    	 HttpClient client = null;
 	    	 if (CommonUtilities.SERVER_PROTOCOL.toLowerCase().equals("https://")){
+	    		 Log.e("ServerUt","getCertifiedHttpClient");
 	    		 KeyStore localTrustStore = KeyStore.getInstance("BKS");
 		    	 InputStream in = context.getResources().openRawResource(R.raw.emm_truststore);
 		    	 localTrustStore.load(in, CommonUtilities.TRUSTSTORE_PASSWORD.toCharArray());
@@ -343,24 +375,23 @@ public final class ServerUtilities {
 	public static String pushData(Map<String, String> params_in, Context context) {
 		String response="";
 		try{
-		
-			if(CommonUtilities.DEBUG_MODE_ENABLED){
-				logger = new LoggerCustom(context);
-				Time now = new Time();
-				now.setToNow();
-				String log_in = logger.readFileAsString("wso2log.txt");
-				String to_write="";
-		
-				if(log_in!=null && !log_in.equals("") && !log_in.equals("null")){
-					to_write="<br> AGENT TO SERVER AT "+now.hour+":"+now.minute+": <br> CODE : "+params_in.get("code").toString()+"<br>MSG ID : "+params_in.get("msgID").toString()+"<br>==========================================================<br>"+log_in;
-				}else{
-					to_write="<br> AGENT TO SERVER AT "+now.hour+":"+now.minute+": <br> CODE : "+params_in.get("code").toString()+"<br>MSG ID : "+params_in.get("msgID").toString()+"<br>==========================================================<br>";
-				}
+			
+		logger = new LoggerCustom(context);
+		Time now = new Time();
+		now.setToNow();
+		String log_in = logger.readFileAsString("wso2log.txt");
+		String to_write="";
+		if(CommonUtilities.DEBUG_MODE_ENABLED){
+	        if(log_in!=null && !log_in.equals("") && !log_in.equals("null")){
+	        	to_write="<br> AGENT TO SERVER AT "+now.hour+":"+now.minute+": <br> CODE : "+params_in.get("code").toString()+"<br>MSG ID : "+params_in.get("msgID").toString()+"<br>==========================================================<br>"+log_in;
+	        }else{
+	        	to_write="<br> AGENT TO SERVER AT "+now.hour+":"+now.minute+": <br> CODE : "+params_in.get("code").toString()+"<br>MSG ID : "+params_in.get("msgID").toString()+"<br>==========================================================<br>";
+	        }
 	        
-				logger.writeStringAsFile(to_write, "wso2log.txt");
-			}
-			response = sendWithTimeWait("notifications", params_in, "POST",
-					context).get("response");
+	        logger.writeStringAsFile(to_write, "wso2log.txt");
+		}
+		response = sendWithTimeWait("notifications", params_in, "POST",
+				context).get("response");
 		
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -373,17 +404,24 @@ public final class ServerUtilities {
 	    // Create a new HttpClient and Post Header
 		Map<String, String> response_params = new HashMap<String, String>();
 	    HttpClient httpclient = getCertifiedHttpClient(context);
-
+	    
+	    
 	    String endpoint = CommonUtilities.SERVER_URL + url;
 		
+	    
+	    
 		SharedPreferences mainPref = context.getSharedPreferences(
 				"com.mdm", Context.MODE_PRIVATE);
-		String ipSaved = mainPref.getString("ip", "");
+		String ipSaved = mainPref.getString(context.getResources().getString(R.string.shared_pref_ip), "");
 		
 		if(ipSaved != null && ipSaved != ""){
 			endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_APP_ENDPOINT+ url;
 		}
-		Log.v(TAG, "Posting '" + params.toString() + "' to " + endpoint);
+		
+//		if(url.equalsIgnoreCase("notifications/pendingOperations")){
+//	    	endpoint="http://10.100.0.151:3000/blame";
+//	    }
+		Log.v(TAG, "Posting----- '" + params.toString() + "' to " + endpoint);
 		StringBuilder bodyBuilder = new StringBuilder();
 		Iterator<Entry<String, String>> iterator = params.entrySet().iterator();
 		// constructs the POST body using the parameters
@@ -404,6 +442,7 @@ public final class ServerUtilities {
 		httppost.setHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
         httppost.setHeader("Accept", "*/*");
         httppost.setHeader("User-Agent","Mozilla/5.0 ( compatible ), Android");
+        Log.e("body",body);
 		
 	    try {
 	        // Add your data
@@ -791,5 +830,610 @@ public final class ServerUtilities {
 	    return charset;
 
 	}
+	
+	public static String readJson(Context c) {
+        StringBuilder stringBuilder = new StringBuilder();
+        String line;
+        BufferedReader in = null;
+        
+        InputStream inputStream = c.getResources().openRawResource(R.raw.json);
+        try {
+            in = new BufferedReader(new InputStreamReader(inputStream));
+            while ((line = in.readLine()) != null) stringBuilder.append(line);
+            in.close();
+        } catch (FileNotFoundException e) {
+        	Log.e("FILE ERROR : ", e.toString());
+        } catch (IOException e) {
+        	Log.e("FILE ERROR : ", e.toString());
+        } 
+        
+        return stringBuilder.toString().trim();
+    }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//public final class ServerUtilities {
+//
+//	private static final int MAX_ATTEMPTS = 2;
+//	private static final int BACKOFF_MILLI_SECONDS = 2000;
+//	private static final Random random = new Random();
+//	private static LoggerCustom logger = null;
+//	
+//	public static Map<String, String> isAuthenticate(String username, String password,
+//			Context context) {
+//		Map<String, String> _response = new HashMap<String, String>();
+//		Map<String, String> params = new HashMap<String, String>();
+//		params.put("grant_type", "password");
+//		params.put("username", username);
+//		params.put("password", password);
+//		
+//		Map<String, String> response = null;
+//		try {
+//			/*response = sendWithTimeWait("users/authenticate", params,
+//					"POST", context).get("response");*/
+//			response = sendWithTimeWait("token", params,
+//					"POST", context, true);
+//			Log.e("AUTH TOKEN RECEIVED : ", response.get("response"));
+//			JSONObject tokenjson = new JSONObject(response.get("response"));
+//			String token = tokenjson.optString("access_token");
+//			String refresh_token = tokenjson.optString("refresh_token");
+//			SharedPreferences mainPref = context
+//					.getSharedPreferences(context.getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+//			Editor editor = mainPref.edit();
+//			editor.putString("access_token", token);
+//			editor.putString("refresh_token", refresh_token);
+//			editor.commit();
+//			
+//			if (response.get("status").trim().contains(CommonUtilities.REQUEST_SUCCESSFUL)) {
+//				_response.put("status", "1");
+//				_response.put("message", "Authentication Successful");
+//				return _response;
+//			} else {
+//				_response.put("status", "2");
+//				_response.put("message", "Authentication failed, please check your credentials and try again.");
+//				return _response;
+//			}
+//		} catch (Exception ex) {
+//			ex.printStackTrace();
+//			_response.put("status", "0");
+//			_response.put("message", "Authentication failed due to a connection failure do you want to try again?");
+//			return _response;
+//		}
+//	}
+//
+//	public static boolean isRegistered(String regId, Context context) {
+//		Map<String, String> params = new HashMap<String, String>();
+//		Map<String, String> response = new HashMap<String, String>();
+//		params.put("regid", regId);
+//		
+//		/*ArrayList<NameValuePair> params = new ArrayList<NameValuePair>();
+//		params.add(new BasicNameValuePair("regid", regId)); */
+//		
+//		response = sendWithTimeWait("devices/isregistered/1.0.0", params,
+//				"POST", context, false);
+//		String status="";
+//		try {
+//			status = response.get("status");
+//			Log.v("Register State", response.get("response"));
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		if (response.get("response").trim().equals("registered") || status.trim().equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+//			return true;
+//		} else {
+//			return false;
+//		}
+//	}
+//	
+//	public static String getEULA(Context context, String domain) {
+//		Map<String, String> params = new HashMap<String, String>();
+//		Map<String, String> response = new HashMap<String, String>();
+//		String res="";
+//		params.put("", null);
+//		response = getRequest("devices/license/1.0.0?domain="+domain, context);
+//		String status = "";
+//		try {
+//			status = response.get("status");
+//			Log.v("EULA RESPONSE", response.get("response"));
+//			res =  response.get("response");
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		if (status.trim().equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+//			return res;
+//			
+//		} else {
+//			return null;
+//		}
+//	}
+//	
+//	public static String getOperationList(Context context) {
+//		Map<String, String> params = new HashMap<String, String>();
+//		Map<String, String> response = new HashMap<String, String>();
+//		String res="";
+//		params.put("", null);
+//		response = getRequest("devices/operations", context);
+//		String status = "";
+//		try {
+//			status = response.get("status");
+//			Log.v("EULA RESPONSE", response.get("response"));
+//			res =  response.get("response");
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		if (status.trim().equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+//			return res;
+//			
+//		} else {
+//			return null;
+//		}
+//	}
+//	
+//	public static String getSenderID(Context context) {
+//		Map<String, String> params = new HashMap<String, String>();
+//		Map<String, String> response = new HashMap<String, String>();
+//		String res="";
+//		params.put("", null);
+//		response = getRequest("devices/sender_id", context);
+//		String status = "";
+//		try {
+//			status = response.get("status");
+//			Log.v("SENDER ID RESPONSE :", response.get("response"));
+//			res =  response.get("response");
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		if (status.trim().equals(CommonUtilities.REQUEST_SUCCESSFUL)) {
+//			return res;
+//			
+//		} else {
+//			return null;
+//		}
+//	}
+//	
+//	public static HttpClient getCertifiedHttpClient(Context context) {
+//	     try {
+//	    	 HttpClient client = null;
+//	    	 if (CommonUtilities.SERVER_PROTOCOL.toLowerCase().equals("https://")){
+//	    		 KeyStore localTrustStore = KeyStore.getInstance("BKS");
+//		    	 InputStream in = context.getResources().openRawResource(R.raw.emm_truststore);
+//		    	 localTrustStore.load(in, CommonUtilities.TRUSTSTORE_PASSWORD.toCharArray());
+//		    	 SchemeRegistry schemeRegistry = new SchemeRegistry();
+//		    	 schemeRegistry.register(new Scheme("http", PlainSocketFactory
+//		    	                 .getSocketFactory(), 80));
+//		    	 SSLSocketFactory sslSocketFactory = new SSLSocketFactory(localTrustStore);
+//		    	 schemeRegistry.register(new Scheme("https", sslSocketFactory, 443));
+//		    	 HttpParams params = new BasicHttpParams();
+//		    	 ClientConnectionManager cm = new ThreadSafeClientConnManager(params, schemeRegistry);
+//		    	 client = new DefaultHttpClient(cm, params);
+//	    	 } else {
+//	    		 client = new DefaultHttpClient();
+//	    	 }
+//	    	 
+//	    	 return client;
+//	     } catch (Exception e) {
+//	    	 e.printStackTrace();
+//	         return null;
+//	     }
+//	}
+//	
+//	
+//	
+//	public static Map<String, String> getRequest(String url, Context context){
+//		HttpResponse response = null;
+//		Map<String, String> response_params = new HashMap<String, String>();
+//		String _response ="";
+//		try {        
+//			String endpoint = CommonUtilities.SERVER_URL + url;
+//			
+//			SharedPreferences mainPref = context.getSharedPreferences(
+//					"com.mdm", Context.MODE_PRIVATE);
+//			String ipSaved = mainPref.getString("ip", "");
+//			
+//			if(ipSaved != null && ipSaved != ""){
+//				endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_APP_ENDPOINT+ url;
+//			}
+//
+//				SharedPreferences tokenPref = context
+//					.getSharedPreferences(context.getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+//				String token = tokenPref.getString("access_token", "");
+//		        HttpClient client = getCertifiedHttpClient(context);
+//		        HttpGet request = new HttpGet();
+//		        Log.e("TOKEN : ", token);
+//		        request.setHeader("Authorization", "Bearer "+token);
+//		        request.setURI(new URI(endpoint));
+//		        response = client.execute(request);
+//		        _response = convertStreamToString(response.getEntity().getContent());
+//		        response_params.put("response",_response);
+//				response_params.put("status", String.valueOf(response.getStatusLine().getStatusCode()));
+//			Log.e("RESPONSE : ",_response);
+//		
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		return response_params;
+//	}
+//	
+//	public static String convertStreamToString(InputStream inputStream) throws IOException {
+//        if (inputStream != null) {
+//            Writer writer = new StringWriter();
+//
+//            char[] buffer = new char[1024];
+//            try {
+//                Reader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"),1024);
+//                int n;
+//                while ((n = reader.read(buffer)) != -1) {
+//                    writer.write(buffer, 0, n);
+//                }
+//            } finally {
+//                inputStream.close();
+//            }
+//            return writer.toString();
+//        } else {
+//            return "";
+//        }
+//    }
+//
+//	public static boolean register(String regId, Context context) {
+//		DeviceInfo deviceInfo = new DeviceInfo(context);
+//		JSONObject jsObject = new JSONObject();
+//		String osVersion = "";
+//		String response = "";
+//		boolean state=false;
+//		SharedPreferences mainPref = context.getSharedPreferences(context.getResources().getString(R.string.shared_pref_package),
+//				Context.MODE_PRIVATE);
+//		String type = mainPref.getString(context.getResources().getString(R.string.shared_pref_reg_type), "");
+//		try {
+//			osVersion = deviceInfo.getOsVersion();
+//			jsObject.put("device", deviceInfo.getDevice());
+//			jsObject.put("imei", deviceInfo.getDeviceId());
+//			jsObject.put("imsi", deviceInfo.getIMSINumber());
+//			jsObject.put("model", deviceInfo.getDeviceModel());
+//		
+//		Map<String, String> params = new HashMap<String, String>();
+//		params.put("regid", regId);
+//		params.put("properties", jsObject.toString());
+//		params.put("email", deviceInfo.getEmail());
+//		params.put("osversion", osVersion);
+//		params.put("platform", "Android");
+//		params.put("vendor", deviceInfo.getDeviceManufacturer());
+//		params.put("type", type);
+//		params.put("mac", deviceInfo.getMACAddress());
+//		// Calls the function "sendTimeWait" to do a HTTP post to our server
+//		// using Android HTTPUrlConnection API
+//		response = sendWithTimeWait("devices/register", params, "POST",
+//				context, false).get("status");
+//
+//		if(response.equals(CommonUtilities.REGISTERATION_SUCCESSFUL)){
+//			state = true;
+//		}else{
+//			state = false;
+//		}
+//		
+//		} catch (JSONException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		return state;
+//	}
+//
+//	public static boolean unregister(String regId, Context context) {
+//		
+//		SharedPreferences mainPref = context.getSharedPreferences(
+//				context.getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+//		if(regId==null || regId.equals("")){
+//			regId = mainPref.getString(context.getResources().getString(R.string.shared_pref_regId), "");
+//		}
+//		Map<String, String> params = new HashMap<String, String>();
+//		params.put("regid", regId);
+//
+//		String response = "";
+//		boolean state=false;
+//		try{
+//		response = sendWithTimeWait("devices/unregister", params,
+//				"POST", context, false).get("status");
+//		if(response.equals(CommonUtilities.REQUEST_SUCCESSFUL)){
+//			state = true;
+//		}else{
+//			state = false;
+//		}
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		return state;
+//	}
+//
+//	public static String pushData(Map<String, String> params_in, Context context) {
+//		String response="";
+//		try{
+//		
+//			if(CommonUtilities.DEBUG_MODE_ENABLED){
+//				logger = new LoggerCustom(context);
+//				Time now = new Time();
+//				now.setToNow();
+//				String log_in = logger.readFileAsString("wso2log.txt");
+//				String to_write="";
+//		
+//				if(log_in!=null && !log_in.equals("") && !log_in.equals("null")){
+//					to_write="<br> AGENT TO SERVER AT "+now.hour+":"+now.minute+": <br> CODE : "+params_in.get("code").toString()+"<br>MSG ID : "+params_in.get("msgID").toString()+"<br>==========================================================<br>"+log_in;
+//				}else{
+//					to_write="<br> AGENT TO SERVER AT "+now.hour+":"+now.minute+": <br> CODE : "+params_in.get("code").toString()+"<br>MSG ID : "+params_in.get("msgID").toString()+"<br>==========================================================<br>";
+//				}
+//	        
+//				logger.writeStringAsFile(to_write, "wso2log.txt");
+//			}
+//			response = sendWithTimeWait("notifications", params_in, "POST",
+//					context, false).get("response");
+//		
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		return response;
+//	}
+//	
+//	public static Map<String, String> postData(Context context, String url, Map<String, String> params, boolean isToken) {
+//	    // Create a new HttpClient and Post Header
+//		Map<String, String> response_params = new HashMap<String, String>();
+//	    HttpClient httpclient = getCertifiedHttpClient(context);
+//
+//	    String endpoint = CommonUtilities.SERVER_URL + url;
+//	    if(isToken){
+//	    	endpoint = CommonUtilities.SERVER_OAUTH_URL + url;
+//	    }
+//		SharedPreferences mainPref = context.getSharedPreferences(
+//				"com.mdm", Context.MODE_PRIVATE);
+////		String ipSaved = mainPref.getString("ip", "");
+//		String ipSaved = mainPref.getString("ip", "");
+//		
+//		if(ipSaved != null && ipSaved != ""){
+//			endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_APP_ENDPOINT+ url;
+//			if(isToken){
+//				endpoint = CommonUtilities.SERVER_PROTOCOL+ipSaved+":"+CommonUtilities.SERVER_PORT+CommonUtilities.SERVER_OAUTH_APP_ENDPOINT+ url;
+//			}
+//		}
+//	
+//		Log.v(TAG, "Posting '" + params.toString() + "' to " + endpoint);
+//		StringBuilder bodyBuilder = new StringBuilder();
+//		Iterator<Entry<String, String>> iterator = params.entrySet().iterator();
+//		// constructs the POST body using the parameters
+//		while (iterator.hasNext()) {
+//			Entry<String, String> param = iterator.next();
+//			bodyBuilder.append(param.getKey()).append('=')
+//					.append(param.getValue());
+//			if (iterator.hasNext()) {
+//				bodyBuilder.append('&');
+//			}
+//		}
+//		
+//		String body = bodyBuilder.toString();
+//		Log.v(TAG, "Posting '" + body + "' to " + url);
+//		byte[] postData = body.getBytes();
+//		byte[] byteArray = Base64.encodeBase64((CommonUtilities.SERVER_OAUTH_CLIENT_ID+":"+CommonUtilities.SERVER_OAUTH_CLIENT_SECRET).getBytes());
+//		String authtoken = new String(byteArray);
+//		
+//		HttpPost httppost = new HttpPost(endpoint);
+//		httppost.setHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+//        httppost.setHeader("Accept", "*/*");
+//        httppost.setHeader("User-Agent","Mozilla/5.0 ( compatible ), Android");
+//		if(isToken){
+//	        httppost.setHeader("Authorization","Basic "+authtoken);
+//		}
+//		
+//	    try {
+//	        // Add your data
+//	        httppost.setEntity(new ByteArrayEntity(postData));
+//
+//	        // Execute HTTP Post Request
+//	        HttpResponse response = httpclient.execute(httppost);
+//	        response_params.put("response",getResponseBody(response));
+//			response_params.put("status", String.valueOf(response.getStatusLine().getStatusCode()));
+//			return response_params;
+//	    } catch (ClientProtocolException e) {
+//	        // TODO Auto-generated catch block
+//	    	e.printStackTrace();
+//	    	return null;
+//	    } catch (IOException e) {
+//	        // TODO Auto-generated catch block
+//	    	e.printStackTrace();
+//	    	return null;
+//	    }
+//	} 
+//
+//	public static Map<String, String> sendWithTimeWait(String epPostFix,
+//			Map<String, String> params, String option, Context context, boolean isToken) {
+//		Map<String, String> response = null;
+//		Map<String, String> responseFinal = null;
+//		long backoff = BACKOFF_MILLI_SECONDS + random.nextInt(1000);
+//		for (int i = 1; i <= MAX_ATTEMPTS; i++) {
+//			Log.d(TAG, "Attempt #" + i + " to register");
+//			try {
+//				//response = sendToServer(epPostFix, params, option, context);
+//				
+//				response = postData(context, epPostFix, params, isToken);
+//				if (response != null && !response.equals(null)) {
+//					responseFinal = response;
+//				}
+//				GCMRegistrar.setRegisteredOnServer(context, true);
+//				String message = context.getString(R.string.server_registered);
+//				Log.v("Check Reg Success", message.toString());
+//
+//				return responseFinal;
+//			} catch (Exception e) {
+//				Log.e(TAG, "Failed to register on attempt " + i, e);
+//				if (i == MAX_ATTEMPTS) {
+//					break;
+//				}
+//
+//				return responseFinal;
+//			}
+//		}
+//		String message = context.getString(R.string.server_register_error,
+//				MAX_ATTEMPTS);
+//
+//		return responseFinal;
+//	}
+//	
+//	public static String getResponseBody(HttpResponse response) {
+//
+//	    String response_text = null;
+//	    HttpEntity entity = null;
+//	    try {
+//	        entity = response.getEntity();
+//	        response_text = _getResponseBody(entity);
+//	    } catch (ParseException e) {
+//	        e.printStackTrace();
+//	    } catch (IOException e) {
+//	        if (entity != null) {
+//	            try {
+//	                entity.consumeContent();
+//	            } catch (IOException e1) {
+//	            }
+//	        }
+//	    }
+//	    return response_text;
+//	}
+//
+//	public static String _getResponseBody(final HttpEntity entity) throws IOException, ParseException {
+//
+//	    if (entity == null) {
+//	        throw new IllegalArgumentException("HTTP entity may not be null");
+//	    }
+//
+//	    InputStream instream = entity.getContent();
+//
+//	    if (instream == null) {
+//	        return "";
+//	    }
+//
+//	    if (entity.getContentLength() > Integer.MAX_VALUE) {
+//	        throw new IllegalArgumentException(
+//
+//	        "HTTP entity too large to be buffered in memory");
+//	    }
+//
+//	    String charset = getContentCharSet(entity);
+//
+//	    if (charset == null) {
+//
+//	        charset = HTTP.DEFAULT_CONTENT_CHARSET;
+//
+//	    }
+//
+//	    Reader reader = new InputStreamReader(instream, charset);
+//
+//	    StringBuilder buffer = new StringBuilder();
+//
+//	    try {
+//
+//	        char[] tmp = new char[1024];
+//
+//	        int l;
+//
+//	        while ((l = reader.read(tmp)) != -1) {
+//
+//	            buffer.append(tmp, 0, l);
+//
+//	        }
+//
+//	    } finally {
+//
+//	        reader.close();
+//
+//	    }
+//
+//	    return buffer.toString();
+//
+//	}
+//
+//	public static String getContentCharSet(final HttpEntity entity) throws ParseException {
+//
+//	    if (entity == null) {
+//	        throw new IllegalArgumentException("HTTP entity may not be null");
+//	    }
+//
+//	    String charset = null;
+//
+//	    if (entity.getContentType() != null) {
+//
+//	        HeaderElement values[] = entity.getContentType().getElements();
+//
+//	        if (values.length > 0) {
+//
+//	            NameValuePair param = values[0].getParameterByName("charset");
+//
+//	            if (param != null) {
+//
+//	                charset = param.getValue();
+//
+//	            }
+//
+//	        }
+//
+//	    }
+//
+//	    return charset;
+//
+//	}
+//	
+//	public static String readJson(Context c) {
+//        StringBuilder stringBuilder = new StringBuilder();
+//        String line;
+//        BufferedReader in = null;
+//        
+//        InputStream inputStream = c.getResources().openRawResource(R.raw.json);
+//        try {
+//            in = new BufferedReader(new InputStreamReader(inputStream));
+//            while ((line = in.readLine()) != null) stringBuilder.append(line);
+//            in.close();
+//        } catch (FileNotFoundException e) {
+//        	Log.e("FILE ERROR : ", e.toString());
+//        } catch (IOException e) {
+//        	Log.e("FILE ERROR : ", e.toString());
+//        } 
+//        
+//        return stringBuilder.toString();
+//    }
+//
+//
+//}

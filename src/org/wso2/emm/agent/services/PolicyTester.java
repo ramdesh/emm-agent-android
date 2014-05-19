@@ -57,7 +57,7 @@ public class PolicyTester {
 	String apz = "";
 	int appcount = 0;
 	JSONObject returnJSON = new JSONObject();
-	JSONArray finalArray = new JSONArray();
+	public JSONArray finalArray = new JSONArray();
 	boolean IS_ENFORCE = false;
 	String ssid, password;
 	int POLICY_MONITOR_TYPE_NO_ENFORCE_RETURN = 1;
@@ -139,7 +139,7 @@ public class PolicyTester {
 			params.put("status", "200");
 			params.put("data", finalArray.toString());
 			
-			ServerUtilities.pushData(params, context);
+			//ServerUtilities.pushData(params, context);
 		} catch (JSONException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

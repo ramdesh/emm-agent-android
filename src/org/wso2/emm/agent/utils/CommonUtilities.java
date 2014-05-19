@@ -15,6 +15,8 @@
 */
 package org.wso2.emm.agent.utils;
 
+import org.wso2.emm.agent.R;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,25 +26,24 @@ import android.content.SharedPreferences;
  * app.
  */
 public class CommonUtilities {
-	public static boolean DEBUG_MODE_ENABLED = false;
+	public static boolean DEBUG_MODE_ENABLED = true;
+	public static boolean LOCAL_NOTIFICATIONS_ENABLED = false;
+	public static boolean GCM_ENABLED = true;
+	public static boolean NEW_MESSAGE_FLOW_ENABLED = false;
 
-	public static String SERVER_IP = "----ADD YOUR HOSTNAME HERE----";
-	public static String SERVER_PORT = "9443";
-	public static String SERVER_PROTOCOL = "https://";
-	public static String SERVER_APP_ENDPOINT = "/mdm/api/";
+	public static String SERVER_IP = "10.100.5.70";
+	public static String SERVER_PORT = "9763";
+	public static String SERVER_PROTOCOL = "http://";
+	public static String SERVER_APP_ENDPOINT = "/emm/api/";
+	public static String SERVER_OAUTH_APP_ENDPOINT = "/oauth2/";
 	public static String SERVER_URL = SERVER_PROTOCOL+SERVER_IP+":"+SERVER_PORT+SERVER_APP_ENDPOINT;
-    public static final String TRUSTSTORE_PASSWORD = "----ADD YOUR TRUST STORE PASSWORD HERE----";
+	public static String SERVER_OAUTH_URL = SERVER_PROTOCOL+SERVER_IP+":"+SERVER_PORT+SERVER_OAUTH_APP_ENDPOINT;
+	public static String SERVER_OAUTH_CLIENT_ID = "MyfCf_sncNwCkPsAAIAWOVdIycca";
+	public static String SERVER_OAUTH_CLIENT_SECRET = "lGc9JtuLQbcBNCp4JJHEdb8VjJwa";
+    public static final String TRUSTSTORE_PASSWORD = "wso2mobile123";
 	public static final String EULA_TITLE = "----ADD YOUR AGREEMENT TITLE HERE----";
 	public static final String EULA_TEXT = "----ADD YOUR POLICY AGREEMENT HERE----";
-
-    	public static String getSERVER_URL() {
-		return SERVER_URL;
-	}
-
-	public static void setSERVER_URL(String sERVER_URL) {
-		SERVER_IP = sERVER_URL;
-		SERVER_URL = SERVER_PROTOCOL+sERVER_URL+":"+SERVER_PORT+"/mdm/api/";
-	}
+	public static int INTERVAL = 1;
 
 	/**
      * Google API project id registered to use GCM.
@@ -50,13 +51,6 @@ public class CommonUtilities {
 
 	public static String SENDER_ID = "----ADD YOUR SENDER ID HERE----";
 	
-    	public static String getSENDER_ID() {
-		return SENDER_ID;
-	}
-
-	public static void setSENDER_ID(String sENDER_ID) {
-		SENDER_ID = sENDER_ID;
-	}
 
 	/**
      * Tag used on log messages.
@@ -74,7 +68,8 @@ public class CommonUtilities {
      */
 	public static final String EXTRA_MESSAGE = "message";
 	public static final int MESSAGE_MODE_GCM = 1;
-	public static final int MESSAGE_MODE_SMS = 2;	
+	public static final int MESSAGE_MODE_SMS = 2;
+	public static final int MESSAGE_MODE_LOCAL = 3;
     
 	/**
 	 * Status codes
@@ -128,4 +123,10 @@ public class CommonUtilities {
         intent.putExtra(EXTRA_MESSAGE, message);
         context.sendBroadcast(intent);
     }
+	
+	public static String getPref(Context context,String key){
+		SharedPreferences mainPref = context.getSharedPreferences(
+		         context.getResources().getString(R.string.shared_pref_package), Context.MODE_PRIVATE);
+		return mainPref.getString(key, "");
+	}
 }
