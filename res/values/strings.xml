@@ -51,6 +51,7 @@
     <string name="device_enroll_type_cope">COPE</string>
     <string name="title_init_msg_error">Initialization Failed. Please try again.</string>
    	<string name="title_head_init_error">Initialization Failed</string>
+   	<string name="title_head_confirm_pin">Re-type the PIN to Confirm</string>
 
     <!-- TEXT FIELD HINTS -->
     <string name="hint_new_pin">New PIN Code</string>
@@ -154,6 +155,7 @@
 
     <!-- BUTTON TITLES -->
     <string name="button_ok">OK</string>
+    <string name="button_cancel">Cancel</string>
 
     <!-- APPLICATION MANAGER -->
     <string name="application_mgr_download_location">/Download/</string>
@@ -169,5 +171,8 @@
     
     <!--  Headings -->
      <string name="registration_heading">Set your server address here to start registration, i.e : www.abc.com</string>
+     
+     <!--  Validation Errors -->
+     <string name="validation_pin_confirm">PINs don\'t match, Please re-enter</string>
 
 </resources>

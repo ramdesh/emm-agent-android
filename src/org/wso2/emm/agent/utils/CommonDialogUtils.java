@@ -22,6 +22,8 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 /**
  * 
  * The CommonDialogUtils class contains the all dialog templates.
@@ -127,7 +129,35 @@ public abstract class CommonDialogUtils {
 
 		return builder;
 	}
-	
+	/**
+	 * Returns an Alert Dialog with two buttons and an edittext.
+	 * 
+	 * @param context the activity which need this alert.
+	 * @param message the alert message
+	 * @param positiveBtnLabel the positive button label
+	 * @param positiveClickListener the positive button listener
+	 * 
+	 * @return an alert dialog
+	 */
+	public static AlertDialog.Builder getAlertDialogWithTwoButtonAndEditView(Context context,
+	                                                              String message,
+	                                                              String positiveBtnLabel,
+	                                                              String negetiveBtnLabel,
+	                                                              DialogInterface.OnClickListener positiveClickListener,
+	                                                              DialogInterface.OnClickListener negativeClickListener,EditText input) {
+
+		AlertDialog.Builder builder = new AlertDialog.Builder(context);
+		builder.setMessage(message).setPositiveButton(positiveBtnLabel, positiveClickListener)
+		       .setNegativeButton(negetiveBtnLabel, negativeClickListener);
+		
+		  LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+		                        LinearLayout.LayoutParams.MATCH_PARENT,
+		                        LinearLayout.LayoutParams.MATCH_PARENT);
+		  input.setLayoutParams(lp);
+		  builder.setView(input); 
+
+		return builder;
+	}
 	/**
 	 * Shows the ProgressDialog.
 	 * 

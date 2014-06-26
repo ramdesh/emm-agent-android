@@ -16,6 +16,8 @@
 package org.wso2.emm.agent;
 
 
+import org.wso2.emm.agent.utils.CommonDialogUtils;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -26,7 +28,10 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
+import android.text.method.PasswordTransformationMethod;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.View;
@@ -46,6 +51,8 @@ public class PinCodeActivity extends Activity {
 	private final int TAG_BTN_SET_PIN = 0;
 	private String FROM_ACTIVITY = null;
 	private String MAIN_ACTIVITY = null;
+	AlertDialog.Builder alertDialog;
+	EditText input;
 
 	@SuppressLint("NewApi")
 	@Override
@@ -170,14 +177,32 @@ public class PinCodeActivity extends Activity {
 			switch (iTag) {
 
 			case TAG_BTN_SET_PIN:
-				AlertDialog.Builder builder = new AlertDialog.Builder(
-						PinCodeActivity.this);
-				builder.setMessage(
-						getResources().getString(R.string.dialog_pin_confirmation)
-								+ " " +txtPin.getText().toString() + " " 
-								+ getResources().getString(R.string.dialog_pin_confirmation_end))
-						.setPositiveButton(getResources().getString(R.string.info_label_rooted_answer_yes), dialogClickListener)
-						.setNegativeButton(getResources().getString(R.string.info_label_rooted_answer_no), dialogClickListener).show();
+				input = new EditText(PinCodeActivity.this);  
+				alertDialog = CommonDialogUtils
+				.getAlertDialogWithTwoButtonAndEditView(PinCodeActivity.this,
+				                                        getResources().getString(R.string.title_head_confirm_pin)
+				                                        , getResources().getString(R.string.button_ok), 
+				                                        getResources().getString(R.string.button_cancel), 
+				                                        dialogClickListener, dialogClickListener,input);
+				
+				final AlertDialog dialog = alertDialog.create();
+				dialog.show();
+				//Overriding default positive button behavior to keep the dialog open, if PINS don't match
+				dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener()
+			      {            
+			          @Override
+			          public void onClick(View v)
+			          {
+			        	  if(txtPin.getText().toString().equals(input.getText().toString())){
+			        		  savePin();
+			        		  dialog.dismiss();
+			        	  }else{
+			        		  input.setError(getResources().getString(R.string.validation_pin_confirm));
+			        	  }
+			          }
+			      });
+				input.setInputType(InputType.TYPE_CLASS_NUMBER);
+				input.setTransformationMethod(new PasswordTransformationMethod());
 				break;
 			default:
 				break;
@@ -190,9 +215,8 @@ public class PinCodeActivity extends Activity {
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
 			switch (which) {
-			case DialogInterface.BUTTON_POSITIVE:
-				savePin();
-				break;
+//			case DialogInterface.BUTTON_POSITIVE:
+//				break;
 
 			case DialogInterface.BUTTON_NEGATIVE:
 				dialog.dismiss();
