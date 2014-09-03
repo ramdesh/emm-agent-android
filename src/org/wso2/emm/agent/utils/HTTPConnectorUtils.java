@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.security.KeyStore;
+import java.security.Security;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.SingleClientConnManager;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpParams;
@@ -44,12 +46,14 @@ public class HTTPConnectorUtils {
 	private static final int BACKOFF_MILLI_SECONDS = 2000;
 	private static final Random random = new Random();
 	
+	
 	public static HttpClient getCertifiedHttpClient(Context context) {
 		try {
 			HttpClient client = null;
 			if (CommonUtilities.SERVER_PROTOCOL.toLowerCase()
 					.equals("https://")) {
-				Log.e("","in");
+				//enable the bellow line and add spongycastle library if you wish to overcome bouncycastle version issue
+				//Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
 				KeyStore localTrustStore = KeyStore.getInstance("BKS");
 				InputStream in = context.getResources().openRawResource(
 						R.raw.emm_truststore);
@@ -67,7 +71,6 @@ public class HTTPConnectorUtils {
 						params, schemeRegistry);
 				client = new DefaultHttpClient(cm, params);
 			} else {
-				Log.e("","out");
 				client = new DefaultHttpClient();
 			}
 
