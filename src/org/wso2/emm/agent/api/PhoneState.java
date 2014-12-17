@@ -1,18 +1,18 @@
-/*
- ~ Copyright (c) 2014, WSO2 Inc. (http://wso2.com/) All Rights Reserved.
- ~
- ~ Licensed under the Apache License, Version 2.0 (the "License");
- ~ you may not use this file except in compliance with the License.
- ~ You may obtain a copy of the License at
- ~
- ~      http://www.apache.org/licenses/LICENSE-2.0
- ~
- ~ Unless required by applicable law or agreed to in writing, software
- ~ distributed under the License is distributed on an "AS IS" BASIS,
- ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ~ See the License for the specific language governing permissions and
- ~ limitations under the License.
-*/
+/**
+ * Copyright (c) 2014, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.wso2.emm.agent.api;
 
 import java.math.BigDecimal;
@@ -100,44 +100,24 @@ public class PhoneState {
 		mStartRX = TrafficStats.getTotalRxBytes();
 		return mStartRX;
 	}*/
+	
 	/**
-	*Returns the device battery information
+	*Returns the device battery level information
 	*/
 	public float getBatteryLevel(){
 		Intent batteryIntent = context.getApplicationContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-	    int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-	    int scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-
-	    // Error checking that probably isn't needed but I added just in case.
-	    if(level == -1 || scale == -1) {
-	        return 50.0f;
+	    
+		//Custom device with no battery
+	    if(batteryIntent==null){
+	    	return 0.0f;
+	    }else{
+	    	int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+		    int scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+		    if(level == -1 || scale == -1) {
+		        return 50.0f;
+		    }
+		    return ((float)level / (float)scale) * 100.0f;
 	    }
-
-	    return ((float)level / (float)scale) * 100.0f;
-		/*BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
-            int scale = -1;
-            int level = -1;
-            int voltage = -1;
-            int temp = -1;
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
-                voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
-                Log.v("Battery Level", "level is "+level+"/"+scale+", temp is "+temp+", voltage is "+voltage);
-                
-                Battery battery = Battery.getInstance();
-                battery.setLevel(level);
-                battery.setScale(scale);
-                battery.setTemp(temp);
-                battery.setVoltage(voltage);
-                
-            }
-        };
-        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-        context.registerReceiver(batteryReceiver, filter);
-		return Battery.getInstance();*/
 	}
 	
 	/**
